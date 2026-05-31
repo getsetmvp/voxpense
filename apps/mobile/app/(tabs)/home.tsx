@@ -310,6 +310,7 @@ export default function HomeScreen() {
           ) : recentGroups.length === 0 ? (
             <EmptyExpenses
               hasFilters={false}
+              compact
               onAdd={() => router.push('/(capture)/voice')}
             />
           ) : (
