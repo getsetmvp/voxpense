@@ -33,6 +33,11 @@ export function Card({
 }: CardProps) {
   const scheme = useColorScheme() ?? 'light';
   const borderColor = scheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)';
+  // On Android newArch, elevation needs a solid backgroundColor on the same
+  // style object as the shadow tokens for the shadow + body to render
+  // correctly. Set an opaque base here so the BlurView + translucent inner
+  // surface composite on top of it instead of bare transparency.
+  const baseBg = scheme === 'dark' ? '#0F172A' : '#FFFFFF';
   return (
     <View
       style={[
@@ -41,8 +46,9 @@ export function Card({
           overflow: 'hidden',
           borderWidth: 1,
           borderColor,
+          backgroundColor: baseBg,
+          ...shadows.card,
         },
-        shadows.card,
         style,
       ]}
     >
