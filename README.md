@@ -8,7 +8,7 @@
 |---|---|
 | Type | `frontend-mobile` (internal monorepo: `apps/mobile/` day-1, future `apps/web/`) |
 | Visibility | Private |
-| Status | scaffold (Phase 3 of [app-development-pipeline](../../productivity/standards/app-development-pipeline.md)) |
+| Status | **Phase 6 — emulator validated (light + dark, empty + 33-expense seed)**; backend live, mobile dev-client running on Android emulator |
 | Backend tenant | `voxpense` on `https://server.getsetmvp.com/voxpense/v1/*` |
 | OTA system | Cloudflare via [yashguptadeveloper/ota-server](https://github.com/yashguptadeveloper/ota-server) — NOT EAS Update |
 | Distribution | EAS Build → APK day-1 (Play Store internal testing later) |
@@ -125,11 +125,50 @@ npx eas submit --platform android --track internal      # to Play Console intern
 
 1. Read `~/productivity/hustle/voxpense/design.md` (locked spec)
 2. Identify which Phase 5 agent's scope the feature belongs to (see § 19 partition)
-3. Branch `feat/<feature>`
+3. Direct commit to `main` until v1 ships (per project policy); afterwards: branch `feat/<feature>` + PR
 4. Implement w/ unit tests + screen render tests
 5. Run on Android emulator + take screenshot for PR
-6. Open PR + merge
-7. CD auto-publishes OTA to preview channel
+6. CD auto-publishes OTA to preview channel on push to main; tag `v*.*.*` for production
+
+## Local dev quickstart (Android emulator)
+
+```bash
+# 1. Start an Android emulator (Pixel API 34 or any AVD)
+~/Library/Android/sdk/emulator/emulator -avd <avd-name> -no-snapshot-load &
+
+# 2. Wait for boot, then build + install the dev client APK once
+cd ~/Projects/voxpense/apps/mobile
+APP_ENV=preview pnpm run android   # ~5–10 min first time, ~30s incremental
+
+# 3. Subsequent runs: just start Metro
+APP_ENV=preview pnpm start
+# Then on the device: open the VoxPense (Preview) app → tap dev server row
+```
+
+The dev client is a separate install from the production app — both can coexist on the device because they have different `bundleIdentifier` / `package` names in `app.config.js`.
+
+## Build state (Phase 6 validation, 2026-06-01)
+
+| Surface | Empty state | Seeded state (3 wallets / 8 categories / 33 expenses / 4 budgets / 3 reminders / 3 recurring) | Light | Dark |
+|---|---|---|---|---|
+| Welcome / Login / Signup | ✓ | n/a | ✓ | ✓ |
+| Home (greeting + week summary + quick-add + recent) | ✓ | ✓ (₹2,169 week, grouped recent rows w/ category icons) | ✓ | ✓ |
+| Expenses (date-grouped infinite scroll + filters + FAB) | ✓ | ✓ (date headers w/ day totals, category icons, wallet labels) | ✓ | ✓ |
+| Insights (metrics + donut + bar + top merchants + AI ask) | ✓ ("No expenses yet") | ✓ (₹14.8k 14-day spend, donut top-5, top-3 merchants) | ✓ | ✓ |
+| Settings tab (grouped nav w/ counts + chevrons right-aligned) | ✓ | ✓ (Wallets 3, Categories 8, Budgets 4, Recurring 3, Reminders 3) | ✓ | ✓ |
+| Profile (avatar + name/email + prefs + log out) | ✓ ("VoxPense member" fallback when createdAt missing) | n/a | ✓ | ✓ |
+| Preferences (theme + currency + voice toggles) | ✓ | ✓ | ✓ | ✓ |
+| Wallets (gradient hero cards per kind) | ✓ | ✓ (Cash green / HDFC Debit purple / GPay orange) | ✓ | ✓ |
+| Categories (grouped by group, icon + color + chevron) | ✓ | ✓ | ✓ | ✓ |
+| Budgets (progress bars + status chips, sheet to add/edit) | ✓ | ✓ (4 monthly budgets w/ progress) | ✓ | ✓ |
+| Recurring (next-run + freq + amount) | ✓ | ✓ (Rent / Gym / Netflix) | ✓ | ✓ |
+| Reminders (bucketed overdue/today/this-week) | ✓ | ✓ | ✓ | ✓ |
+| Voice capture modal (mic + transcript + AI parse) | ✓ | ✓ | n/a (full-bleed) | n/a |
+| Photo capture (camera w/ frame guide + receipt OCR) | ✓ permission flow + camera live | ✓ | n/a | n/a |
+| Manual entry (form + pickers) | ✓ | ✓ | ✓ | ✓ |
+| AI Confirm (parsed preview + edit + save) | ✓ | ✓ | ✓ | ✓ |
+
+Known minor polish items deferred to v1.1: live wallet balance computation, expo-image-picker gallery support on photo screen, native date-picker on manual entry, custom date-range preset on expense filters.
 
 ## Standards followed
 
