@@ -52,22 +52,15 @@ export function Card({
         style,
       ]}
     >
-      <BlurView
-        intensity={intensityMap[intensity]}
-        tint={scheme === 'dark' ? 'dark' : 'light'}
-        style={{ flex: 1 }}
+      <View
+        style={{
+          padding: padded ? 16 : 0,
+          backgroundColor:
+            scheme === 'dark' ? 'rgba(17,24,39,0.55)' : 'rgba(255,255,255,0.55)',
+        }}
       >
-        <View
-          className={className}
-          style={{
-            padding: padded ? 16 : 0,
-            backgroundColor:
-              scheme === 'dark' ? 'rgba(17,24,39,0.55)' : 'rgba(255,255,255,0.55)',
-          }}
-        >
-          {children}
-        </View>
-      </BlurView>
+        {children}
+      </View>
     </View>
   );
 }

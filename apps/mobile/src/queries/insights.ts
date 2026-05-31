@@ -107,7 +107,7 @@ export function useInsightsWindow(days = 30): UseInsightsWindowResult {
   }, [to, days]);
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
-  const params = { from: fromIso, to: toIso, limit: 500 };
+  const params = { from: fromIso, to: toIso, limit: 200 };
   const q = useQuery({
     queryKey: qk.expenses(params),
     queryFn: () => expensesApi.list(params),

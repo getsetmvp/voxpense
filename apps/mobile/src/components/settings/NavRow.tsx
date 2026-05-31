@@ -1,7 +1,7 @@
 // Settings nav row — icon + label + optional badge + chevron.
 
 import { ReactNode } from 'react';
-import { View, Text, Pressable, useColorScheme } from 'react-native';
+import { View, Text, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface NavRowProps {
@@ -40,22 +40,13 @@ export function NavRow({
     <Pressable
       onPress={onPress}
       disabled={!onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingVertical: 14,
-        gap: 10,
-        borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: borderColor,
-        backgroundColor: pressed && onPress ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.03)') : 'transparent',
-      })}
+      style={[
+        styles.row,
+        { borderBottomWidth: isLast ? 0 : 1, borderBottomColor: borderColor },
+      ]}
     >
-      {/* Leading icon (fixed width, never shrinks) */}
-      <View style={{ width: 28, alignItems: 'center', flexShrink: 0 }}>{icon}</View>
-
-      {/* Label (grows to push trailing items to the right edge) */}
-      <View style={{ flex: 1, minWidth: 0 }}>
+      <View style={styles.iconCol}>{icon}</View>
+      <View style={styles.labelCol}>
         <Text style={{ fontSize: 15, fontWeight: '500', color: fg }} numberOfLines={1}>
           {label}
         </Text>
@@ -65,18 +56,9 @@ export function NavRow({
           </Text>
         )}
       </View>
-
-      {/* Trailing cluster: count badge + accessory + chevron, all right-aligned */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          flexShrink: 0,
-        }}
-      >
+      <View style={styles.trailingCol}>
         {badge != null && (
-          <Text style={{ fontSize: 13, color: meta }}>{badge}</Text>
+          <Text style={{ fontSize: 13, color: meta, marginRight: 8 }}>{badge}</Text>
         )}
         {rightAccessory}
         {showChevron && onPress && !rightAccessory && (
@@ -86,3 +68,26 @@ export function NavRow({
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  iconCol: {
+    width: 28,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  labelCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  trailingCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+});
