@@ -26,11 +26,17 @@ module.exports = ({ config }) => {
     updates: {
       url: `${process.env.OTA_SERVER_URL || 'https://ota-server.yashguptadeveloper.workers.dev'}/voxpense/${env}/manifest`,
       checkAutomatically: 'NEVER',
-      codeSigningCertificate: './certs/certificate.pem',
-      codeSigningMetadata: {
-        keyid: 'main',
-        alg: 'rsa-v1_5-sha256',
-      },
+      // Code signing only in non-development builds. Dev client + Metro
+      // serve unsigned manifests; the OTA pipeline signs separately.
+      ...(env === 'development'
+        ? {}
+        : {
+            codeSigningCertificate: './certs/certificate.pem',
+            codeSigningMetadata: {
+              keyid: 'main',
+              alg: 'rsa-v1_5-sha256',
+            },
+          }),
       enabled: true,
     },
     ios: {
