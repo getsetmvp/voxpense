@@ -152,7 +152,7 @@ export function useBudgetProgress(): {
   const b = useBudgets();
   // For budgets we pull a wider window (start of month). Reuse query cache.
   const monthStart = useMemo(() => startOfMonth(new Date()), []);
-  const params = { from: monthStart.toISOString(), limit: 500 };
+  const params = { from: monthStart.toISOString(), limit: 200 };
   const e = useQuery({
     queryKey: qk.expenses({ ...params, scope: 'budgets' }),
     queryFn: () => expensesApi.list(params),

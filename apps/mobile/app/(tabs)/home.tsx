@@ -210,7 +210,28 @@ export default function HomeScreen() {
               // transform/scale on the pressable itself).
               <View
                 key={qa.key}
-                style={{ flex: 1, aspectRatio: 1 }}
+                style={{
+                  flex: 1,
+                  aspectRatio: 1,
+                  borderRadius: 22,
+                  backgroundColor: qa.primary
+                    ? isDark
+                      ? '#60A5FA'
+                      : '#3B82F6'
+                    : isDark
+                      ? 'rgba(31,41,55,0.7)'
+                      : 'rgba(255,255,255,0.85)',
+                  borderWidth: qa.primary ? 0 : 1,
+                  borderColor: isDark
+                    ? 'rgba(255,255,255,0.06)'
+                    : 'rgba(15,23,42,0.06)',
+                  shadowColor: qa.primary ? '#3B82F6' : '#000',
+                  shadowOpacity: qa.primary ? 0.3 : 0.05,
+                  shadowRadius: 16,
+                  shadowOffset: { width: 0, height: 8 },
+                  elevation: qa.primary ? 6 : 2,
+                  overflow: 'hidden',
+                }}
               >
                 <Pressable
                   onPress={() => router.push(qa.href)}
@@ -222,23 +243,7 @@ export default function HomeScreen() {
                     borderRadius: 22,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: qa.primary
-                      ? isDark
-                        ? '#60A5FA'
-                        : '#3B82F6'
-                      : isDark
-                        ? 'rgba(31,41,55,0.7)'
-                        : 'rgba(255,255,255,0.75)',
-                    borderWidth: qa.primary ? 0 : 1,
-                    borderColor: isDark
-                      ? 'rgba(255,255,255,0.06)'
-                      : 'rgba(15,23,42,0.06)',
                     opacity: pressed ? 0.85 : 1,
-                    shadowColor: qa.primary ? '#3B82F6' : '#000',
-                    shadowOpacity: qa.primary ? 0.3 : 0.05,
-                    shadowRadius: 16,
-                    shadowOffset: { width: 0, height: 8 },
-                    elevation: qa.primary ? 6 : 2,
                   })}
                 >
                   <Ionicons

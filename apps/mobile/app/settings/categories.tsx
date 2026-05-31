@@ -151,17 +151,18 @@ export default function CategoriesScreen() {
                   <Pressable
                     key={c.id}
                     onPress={() => openEdit(c)}
-                    style={({ pressed }) => ({
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
-                      borderBottomWidth: idx === list.length - 1 ? 0 : 1,
-                      borderBottomColor: isDark
-                        ? 'rgba(255,255,255,0.05)'
-                        : 'rgba(15,23,42,0.06)',
-                      opacity: pressed ? 0.85 : 1,
-                    })}
+                    style={[
+                      {
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingHorizontal: 14,
+                        paddingVertical: 12,
+                        borderBottomWidth: idx === list.length - 1 ? 0 : 1,
+                        borderBottomColor: isDark
+                          ? 'rgba(255,255,255,0.05)'
+                          : 'rgba(15,23,42,0.06)',
+                      },
+                    ]}
                   >
                     <View
                       style={{
