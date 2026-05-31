@@ -63,8 +63,10 @@ export function EmptyView({ title, body, icon, action }: EmptyViewProps) {
         </Text>
       )}
       {action && (
-        <View style={{ marginTop: 8 }}>
-          <Button onPress={action.onPress}>{action.label}</Button>
+        <View style={{ marginTop: 16, marginBottom: 8 }}>
+          <Button onPress={action.onPress} size="lg">
+            {action.label}
+          </Button>
         </View>
       )}
     </View>
@@ -103,8 +105,8 @@ export function ErrorView({ title = 'Something went wrong', message, onRetry }: 
         </Text>
       )}
       {onRetry && (
-        <View style={{ marginTop: 8 }}>
-          <Button onPress={onRetry} variant="secondary">
+        <View style={{ marginTop: 16, marginBottom: 8 }}>
+          <Button onPress={onRetry} variant="secondary" size="lg">
             Try again
           </Button>
         </View>
