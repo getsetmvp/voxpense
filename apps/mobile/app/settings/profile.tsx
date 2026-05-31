@@ -54,6 +54,15 @@ function initialsFrom(user: User | null): string {
   return letters.toUpperCase() || '·';
 }
 
+// "Member since Jun 2026" when createdAt is a valid ISO string, otherwise a
+// plain "VoxPense member" so the line is never empty or shows "Invalid Date".
+function memberSinceLabel(createdAt: string | undefined | null): string {
+  if (!createdAt) return 'VoxPense member';
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return 'VoxPense member';
+  return `Member since ${formatDate(createdAt, 'MMM yyyy')}`;
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const scheme = useColorScheme() ?? 'light';
@@ -213,7 +222,7 @@ export default function ProfileScreen() {
                     color: isDark ? '#94A3B8' : '#64748B',
                   }}
                 >
-                  Member since {formatDate(user.createdAt, 'MMM yyyy')}
+                  {memberSinceLabel(user.createdAt)}
                 </Text>
               )}
             </View>

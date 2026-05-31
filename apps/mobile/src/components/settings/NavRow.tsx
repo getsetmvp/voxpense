@@ -45,25 +45,44 @@ export function NavRow({
         alignItems: 'center',
         paddingHorizontal: 14,
         paddingVertical: 14,
+        gap: 10,
         borderBottomWidth: isLast ? 0 : 1,
         borderBottomColor: borderColor,
         backgroundColor: pressed && onPress ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.03)') : 'transparent',
       })}
     >
-      <View style={{ width: 28, alignItems: 'center' }}>{icon}</View>
-      <View style={{ flex: 1, marginLeft: 10 }}>
-        <Text style={{ fontSize: 15, fontWeight: '500', color: fg }}>{label}</Text>
+      {/* Leading icon (fixed width, never shrinks) */}
+      <View style={{ width: 28, alignItems: 'center', flexShrink: 0 }}>{icon}</View>
+
+      {/* Label (grows to push trailing items to the right edge) */}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 15, fontWeight: '500', color: fg }} numberOfLines={1}>
+          {label}
+        </Text>
         {hint && (
-          <Text style={{ fontSize: 12, color: meta, marginTop: 2 }}>{hint}</Text>
+          <Text style={{ fontSize: 12, color: meta, marginTop: 2 }} numberOfLines={1}>
+            {hint}
+          </Text>
         )}
       </View>
-      {badge != null && (
-        <Text style={{ fontSize: 13, color: meta, marginRight: 8 }}>{badge}</Text>
-      )}
-      {rightAccessory}
-      {showChevron && onPress && !rightAccessory && (
-        <Ionicons name="chevron-forward" size={18} color={meta} />
-      )}
+
+      {/* Trailing cluster: count badge + accessory + chevron, all right-aligned */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          flexShrink: 0,
+        }}
+      >
+        {badge != null && (
+          <Text style={{ fontSize: 13, color: meta }}>{badge}</Text>
+        )}
+        {rightAccessory}
+        {showChevron && onPress && !rightAccessory && (
+          <Ionicons name="chevron-forward" size={18} color={meta} />
+        )}
+      </View>
     </Pressable>
   );
 }
