@@ -109,7 +109,6 @@ export function Button({
     alignSelf: fullWidth ? 'stretch' : 'flex-start',
     opacity: isDisabled ? 0.5 : 1,
     backgroundColor: bg,
-    overflow: 'hidden',
     ...(variant === 'primary' ? shadows.fab : {}),
   };
 
@@ -129,7 +128,7 @@ export function Button({
         accessibilityRole="button"
         disabled={isDisabled}
         style={({ pressed }) => [
-          { ...baseStyle, backgroundColor: 'transparent' },
+          { ...baseStyle, backgroundColor: 'transparent', overflow: 'hidden' },
           { transform: [{ scale: pressed ? 0.97 : 1 }] },
           style,
         ]}
