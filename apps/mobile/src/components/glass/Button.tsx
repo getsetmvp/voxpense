@@ -94,6 +94,9 @@ export function Button({
     </>
   );
 
+  // Merge backgroundColor directly into baseStyle. On Android with newArch,
+  // elevation requires bg color to be set on the same style object — passing
+  // it as a separate object in the style array sometimes renders transparent.
   const baseStyle: ViewStyle = {
     paddingHorizontal: dims.px,
     paddingVertical: dims.py,
@@ -103,6 +106,7 @@ export function Button({
     justifyContent: 'center',
     alignSelf: fullWidth ? 'stretch' : 'flex-start',
     opacity: isDisabled ? 0.5 : 1,
+    backgroundColor: bg,
     ...(variant === 'primary' ? shadows.fab : {}),
   };
 
@@ -112,13 +116,17 @@ export function Button({
         accessibilityRole="button"
         disabled={isDisabled}
         style={({ pressed }) => [
-          baseStyle,
+          { ...baseStyle, backgroundColor: 'transparent' },
           { overflow: 'hidden', transform: [{ scale: pressed ? 0.97 : 1 }] },
           style,
         ]}
         {...rest}
       >
-        <BlurView intensity={20} tint={scheme === 'dark' ? 'dark' : 'light'} style={{ ...baseStyle, position: 'absolute', inset: 0 }} />
+        <BlurView
+          intensity={20}
+          tint={scheme === 'dark' ? 'dark' : 'light'}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
         {content}
       </Pressable>
     );
@@ -130,7 +138,7 @@ export function Button({
       disabled={isDisabled}
       style={({ pressed }) => [
         baseStyle,
-        { backgroundColor: bg, transform: [{ scale: pressed ? 0.97 : 1 }] },
+        { transform: [{ scale: pressed ? 0.97 : 1 }] },
         style,
       ]}
       {...rest}
