@@ -23,7 +23,10 @@ export function Screen({ children, safe = true, contentClassName, style }: Scree
   const Container = safe ? SafeAreaView : View;
   return (
     <View style={[{ flex: 1, backgroundColor: scheme === 'dark' ? palette.bgDark : palette.bgLight }, style]}>
-      <LinearGradient colors={colors as [string, string, string]} style={{ position: 'absolute', inset: 0 }} />
+      <LinearGradient
+        colors={colors as [string, string, string]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
       <Container style={{ flex: 1 }}>
         <View className={contentClassName ?? 'flex-1'}>{children}</View>
       </Container>

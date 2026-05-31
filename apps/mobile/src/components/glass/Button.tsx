@@ -6,6 +6,7 @@ import {
   Pressable,
   PressableProps,
   Text,
+  View,
   ViewStyle,
   useColorScheme,
 } from 'react-native';
@@ -94,9 +95,10 @@ export function Button({
     </>
   );
 
-  // Merge backgroundColor directly into baseStyle. On Android with newArch,
-  // elevation requires bg color to be set on the same style object — passing
-  // it as a separate object in the style array sometimes renders transparent.
+  // Android newArch + elevation can render the host view's backgroundColor as
+  // transparent in certain cases (RN 0.74+ Fabric). Defensive fix: paint the
+  // fill as an absolutely-positioned sibling View BEHIND the content, with
+  // the same radius. The outer Pressable holds the shape + shadow only.
   const baseStyle: ViewStyle = {
     paddingHorizontal: dims.px,
     paddingVertical: dims.py,
@@ -110,14 +112,24 @@ export function Button({
     ...(variant === 'primary' ? shadows.fab : {}),
   };
 
+  const fillStyle: ViewStyle = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: bg,
+    borderRadius: radii.pill,
+  };
+
   if (variant === 'ghost') {
     return (
       <Pressable
         accessibilityRole="button"
         disabled={isDisabled}
         style={({ pressed }) => [
-          { ...baseStyle, backgroundColor: 'transparent' },
-          { overflow: 'hidden', transform: [{ scale: pressed ? 0.97 : 1 }] },
+          { ...baseStyle, backgroundColor: 'transparent', overflow: 'hidden' },
+          { transform: [{ scale: pressed ? 0.97 : 1 }] },
           style,
         ]}
         {...rest}
@@ -143,6 +155,7 @@ export function Button({
       ]}
       {...rest}
     >
+      <View pointerEvents="none" style={fillStyle} />
       {content}
     </Pressable>
   );

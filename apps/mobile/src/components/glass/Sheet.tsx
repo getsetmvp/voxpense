@@ -36,7 +36,7 @@ export function Sheet({ open, onClose, children, dismissable = true }: SheetProp
         <BlurView
           intensity={20}
           tint={scheme === 'dark' ? 'dark' : 'light'}
-          style={{ position: 'absolute', inset: 0 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         />
         <Pressable onPress={() => {}} style={{ overflow: 'hidden' }}>
           <SafeAreaView
