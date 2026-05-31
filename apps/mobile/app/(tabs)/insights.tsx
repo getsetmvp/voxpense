@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { ScrollView, View, Text, useColorScheme, RefreshControl } from 'react-native';
 
-import { Screen, Card, LoadingView, ErrorView } from '../../src/components/glass';
+import { Screen, Card, LoadingView, EmptyView, ErrorView } from '../../src/components/glass';
 import {
   AskInput,
   BarChart,
@@ -42,13 +42,26 @@ export default function InsightsScreen() {
       </Screen>
     );
   }
-  if (window.isError) {
+  // Only treat as error when we genuinely failed AND have no data to show.
+  // A brand-new user with zero expenses returns 200 with an empty list — that's
+  // an empty state, not an error.
+  if (window.isError && window.expenses.length === 0) {
     return (
       <Screen>
         <ErrorView
           title="Couldn't load insights"
           message="Pull to retry or check connection."
           onRetry={() => window.refetch()}
+        />
+      </Screen>
+    );
+  }
+  if (window.expenses.length === 0) {
+    return (
+      <Screen>
+        <EmptyView
+          title="No expenses yet"
+          body="Log your first expense to see your spending insights, categories and trends."
         />
       </Screen>
     );
