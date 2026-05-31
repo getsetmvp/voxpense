@@ -336,12 +336,51 @@ export default function ExpensesScreen() {
         />
       )}
 
-      {/* FAB → voice capture (overlay anchored bottom-right above tab bar) */}
-      <Fab
-        onPress={() => router.push('/(capture)/voice')}
-        accessibilityLabel="Add expense"
-        icon="add"
-      />
+      {/* FAB → voice capture */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1000,
+          elevation: 12,
+        }}
+      >
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            right: 24,
+            bottom: 96,
+            width: 56,
+            height: 56,
+          }}
+        >
+          <Pressable
+            onPress={() => router.push('/(capture)/voice')}
+            accessibilityRole="button"
+            accessibilityLabel="Add expense"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#3B82F6',
+              shadowOpacity: 0.45,
+              shadowRadius: 22,
+              shadowOffset: { width: 0, height: 12 },
+              elevation: 12,
+            }}
+          >
+            <Ionicons name="add" size={28} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
 
       {/* Filter sheet */}
       <FilterSheet
