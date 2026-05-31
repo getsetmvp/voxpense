@@ -205,51 +205,59 @@ export default function HomeScreen() {
           </Text>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             {QUICK_ACTIONS.map((qa) => (
-              <Pressable
+              // Outer column owns the flex slot; Pressable fills it 100% so the
+              // tap target exactly matches the visual tile (no drift from
+              // transform/scale on the pressable itself).
+              <View
                 key={qa.key}
-                onPress={() => router.push(qa.href)}
-                accessibilityLabel={qa.label}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  aspectRatio: 0.85,
-                  borderRadius: 22,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: qa.primary
-                    ? isDark
-                      ? '#60A5FA'
-                      : '#3B82F6'
-                    : isDark
-                      ? 'rgba(31,41,55,0.7)'
-                      : 'rgba(255,255,255,0.75)',
-                  borderWidth: qa.primary ? 0 : 1,
-                  borderColor: isDark
-                    ? 'rgba(255,255,255,0.06)'
-                    : 'rgba(15,23,42,0.06)',
-                  transform: [{ scale: pressed ? 0.97 : 1 }],
-                  shadowColor: qa.primary ? '#3B82F6' : '#000',
-                  shadowOpacity: qa.primary ? 0.3 : 0.05,
-                  shadowRadius: 16,
-                  shadowOffset: { width: 0, height: 8 },
-                  elevation: qa.primary ? 6 : 2,
-                })}
+                style={{ flex: 1, aspectRatio: 1 }}
               >
-                <Ionicons
-                  name={qa.icon}
-                  size={26}
-                  color={qa.primary ? '#FFFFFF' : ink}
-                />
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: qa.primary ? '#FFFFFF' : ink,
-                    marginTop: 8,
-                  }}
+                <Pressable
+                  onPress={() => router.push(qa.href)}
+                  accessibilityLabel={qa.label}
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 22,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: qa.primary
+                      ? isDark
+                        ? '#60A5FA'
+                        : '#3B82F6'
+                      : isDark
+                        ? 'rgba(31,41,55,0.7)'
+                        : 'rgba(255,255,255,0.75)',
+                    borderWidth: qa.primary ? 0 : 1,
+                    borderColor: isDark
+                      ? 'rgba(255,255,255,0.06)'
+                      : 'rgba(15,23,42,0.06)',
+                    opacity: pressed ? 0.85 : 1,
+                    shadowColor: qa.primary ? '#3B82F6' : '#000',
+                    shadowOpacity: qa.primary ? 0.3 : 0.05,
+                    shadowRadius: 16,
+                    shadowOffset: { width: 0, height: 8 },
+                    elevation: qa.primary ? 6 : 2,
+                  })}
                 >
-                  {qa.label}
-                </Text>
-              </Pressable>
+                  <Ionicons
+                    name={qa.icon}
+                    size={26}
+                    color={qa.primary ? '#FFFFFF' : ink}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: qa.primary ? '#FFFFFF' : ink,
+                      marginTop: 8,
+                    }}
+                  >
+                    {qa.label}
+                  </Text>
+                </Pressable>
+              </View>
             ))}
           </View>
         </View>
