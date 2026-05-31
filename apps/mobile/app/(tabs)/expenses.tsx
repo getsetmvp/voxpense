@@ -20,6 +20,7 @@ import {
   EmptyExpenses,
   ExpenseGroupHeader,
   ExpenseRow,
+  Fab,
   FilterPills,
   FilterSheet,
   emptyFilters,
@@ -335,30 +336,12 @@ export default function ExpensesScreen() {
         />
       )}
 
-      {/* FAB → voice capture */}
-      <Pressable
+      {/* FAB → voice capture (overlay anchored bottom-right above tab bar) */}
+      <Fab
         onPress={() => router.push('/(capture)/voice')}
         accessibilityLabel="Add expense"
-        style={({ pressed }) => ({
-          position: 'absolute',
-          right: 20,
-          bottom: 100,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: '#3B82F6',
-          shadowOpacity: 0.45,
-          shadowRadius: 22,
-          shadowOffset: { width: 0, height: 12 },
-          elevation: 10,
-          transform: [{ scale: pressed ? 0.96 : 1 }],
-        })}
-      >
-        <Ionicons name="add" size={28} color="#FFFFFF" />
-      </Pressable>
+        icon="add"
+      />
 
       {/* Filter sheet */}
       <FilterSheet
