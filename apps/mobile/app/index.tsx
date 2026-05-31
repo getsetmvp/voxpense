@@ -1,14 +1,12 @@
-// Placeholder home — replaced by Phase 5 Agent C (Home screen 06).
+// Entry route. AuthGate in _layout handles redirection; we just render a
+// splash placeholder while auth state hydrates.
 
-import { View, Text } from 'react-native';
+import { Screen, LoadingView } from '../src/components/glass';
 
-export default function Index() {
+export default function IndexRedirect() {
   return (
-    <View className="flex-1 items-center justify-center bg-bg-l dark:bg-bg-d">
-      <Text className="text-2xl font-bold text-ink-l1 dark:text-ink-d1">VoxPense</Text>
-      <Text className="text-sm text-ink-l2 dark:text-ink-d2 mt-2">
-        Phase 3 boilerplate. Features land in Phase 5.
-      </Text>
-    </View>
+    <Screen>
+      <LoadingView label="Loading VoxPense…" />
+    </Screen>
   );
 }
