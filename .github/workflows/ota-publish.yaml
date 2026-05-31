@@ -1,0 +1,69 @@
+name: OTA Publish
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  ota:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Determine env (tag → production / main → preview)
+        id: envmap
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "env=production" >> $GITHUB_OUTPUT
+          else
+            echo "env=preview" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build OTA bundles
+        run: pnpm --filter @voxpense/mobile ota:build
+        env:
+          APP_ENV: ${{ steps.envmap.outputs.env }}
+
+      - name: Get next version
+        id: next
+        run: |
+          cd apps/mobile
+          echo "version=$(node scripts/next-version.js ${{ steps.envmap.outputs.env }})" >> $GITHUB_OUTPUT
+        env:
+          APP_NAME: ${{ secrets.APP_NAME }}
+          OTA_SERVER_URL: ${{ secrets.OTA_SERVER_URL }}
+
+      - name: Upload bundles to R2
+        run: |
+          cd apps/mobile
+          node scripts/upload-to-r2.js ${{ steps.envmap.outputs.env }} ${{ steps.next.outputs.version }}
+        env:
+          APP_NAME: ${{ secrets.APP_NAME }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Trigger ota-server update-version workflow
+        run: |
+          gh workflow run update-version.yaml \
+            --repo yashguptadeveloper/ota-server \
+            -f app=${{ secrets.APP_NAME }} \
+            -f env=${{ steps.envmap.outputs.env }} \
+            -f version=${{ steps.next.outputs.version }} \
+            -f promote=true
+        env:
+          GH_TOKEN: ${{ secrets.OTA_REPO_TOKEN }}
