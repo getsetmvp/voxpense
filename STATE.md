@@ -6,15 +6,17 @@
 
 | Phase | Status | Notes |
 |---|---|---|
-| 1 — Mockups | ✓ done | `~/productivity/hustle/voxpense/mockups/index.html`, 28 phone frames |
+| 1 — Mockups | ✓ done | Originally a glass mockup; now superseded by MVP design at `~/productivity/hustle/voxpense/mockups/index.html` (canonical) |
 | 2 — Standards check | ✓ done | type spec, OTA, env policy, pipeline all locked |
-| 3 — Repo init | ✓ done | monorepo + Expo SDK 53 + NativeWind + OTA wiring + workflows |
+| 3 — Repo init | ✓ done | monorepo + Expo + NativeWind + OTA wiring + workflows |
 | 4 — Server tenant | ✓ done | `voxpense` tenant live at `https://server.getsetmvp.com/voxpense/v1/*`; Prisma migration applied |
 | 4.5 — VM migrate + smoke | ✓ done | auth/CRUD/AI all round-trip green |
 | 5 — Parallel feature agents | ✓ done | 4 agents (B/C/D/E) + foundation; ~9k LOC |
 | 6 — Emulator validation | ✓ done | dev client APK built + installed; light + dark + empty + 33-expense seed tested |
-| 6.5 — Mockup-pixel rebuild | ✓ done | 4 agents (J/K/L/M) rewrote every screen to match mockup HTML; ~20 fix commits |
-| 6.6 — Pressable static-style sweep | ✓ done | Agent N converted 25 files from function-form to static-form Pressable styles (Android Fabric bug) |
+| 6.5 — Mockup-pixel rebuild (glass) | ✓ done (deprecated) | 4 agents rewrote screens against glass mockup; design later abandoned |
+| 6.6 — Pressable static-style sweep | ✓ done | converted 25 files from function-form to static-form Pressable styles (Android Fabric bug) |
+| SDK 53 → 54 bump | ✓ done | `expo ~54.0.35`, `expo-router 6`, `react-native 0.81.5`, plus speech-recognition Expo Go shim |
+| MVP-design rebuild | ✓ done (2026-06-01) | Entire UI layer rewritten on v0 MVP design language (indigo, flat, Inter). 22 screens working light + dark. See `~/productivity/hustle/voxpense/REBUILD_HANDOFF.md`. |
 | 7 — User review APK | pending | next: `eas build --profile preview --platform android`, install on phone, daily use 5-7 days |
 | 8-9 — Production release | pending | tag `v1.0.0` → production AAB + Play Console internal track |
 
@@ -97,21 +99,18 @@ adb -s emulator-5556 install -r android/app/build/outputs/apk/debug/app-debug.ap
 ```
 apps/mobile/
 ├── app/                                 Expo Router pages (file-based)
-│   ├── _layout.tsx                      providers + AuthGate + nav stack
+│   ├── _layout.tsx                      providers + AuthGate + nav stack + Inter font loader
 │   ├── index.tsx                        splash redirect
-│   ├── (onboarding)/                    welcome / login / signup    (Phase 5 Agent B, rebuilt by Agent J in 6.5)
-│   ├── (tabs)/                          home / expenses / insights / settings   (J + L + M)
-│   ├── (capture)/                       voice / photo / manual / confirm   (K)
-│   ├── expense/[id].tsx                 detail/edit/delete   (C + J)
-│   └── settings/                        profile / preferences / wallets / categories / groups / budgets / recurring / reminders / privacy / about   (B + E + M)
+│   ├── (onboarding)/                    welcome / login / signup / currency / wallet
+│   ├── (tabs)/                          home / expenses / ask / insights / settings   (5 tabs)
+│   ├── (capture)/                       voice / photo / manual / confirm
+│   ├── expense/[id].tsx                 detail/edit/delete (single screen)
+│   └── settings/                        profile / preferences / wallets / categories / groups / budgets / recurring / reminders / privacy / about
 ├── src/
-│   ├── components/glass/                FOUNDATION — Screen / Card / Button / Input / Sheet / States / Stub   (locked, do not regress)
-│   ├── components/auth/                 AuthTopBar / AuthSegmented / AuthField / FormBanner
-│   ├── components/home/                 Chip / WeekSparkline
-│   ├── components/expense/              ExpenseRow / FilterSheet / FilterPills / Fab / AmountDisplay / EmptyExpenses / grouping
-│   ├── components/capture/              MicButton / Waveform / CaptureHeader / PickerSheet
-│   ├── components/insights/             MetricTile / DonutChart / BarChart / AskInput
-│   ├── components/settings/             NavRow / SectionGroup / ScreenHeader / FAB / ColorSwatchPicker / IconPicker / SegmentedControl
+│   ├── components/ui/                   FOUNDATION primitives — Button / Card / Chip / Input / ListItem / Sheet / Skeleton / Toast / Banner / Amount / ConfirmDialog / EmptyState
+│   ├── components/layout/               Screen / Header / SectionHeader / Dots / FabStack
+│   ├── components/feature/              ExpenseRow / FilterSheet (composed feature widgets)
+│   ├── components/ErrorBoundary.tsx
 │   ├── lib/api.ts                       fetch wrapper + auto-refresh   (NEVER bypass — every server call goes through here)
 │   ├── lib/endpoints.ts                 typed namespaces: auth / users / wallets / groups / categories / expenses / budgets / recurring / reminders / ai
 │   ├── lib/format.ts                    currency / date helpers
@@ -120,7 +119,12 @@ apps/mobile/
 │   ├── queries/expenses.ts              React Query hooks: useExpensesList (infinite) / useExpense / useCreateExpense / useUpdateExpense / useDeleteExpense
 │   ├── queries/insights.ts              hooks for categories / wallets / groups / budgets / recurring / reminders + window aggregations + all mutations
 │   ├── query/client.ts                  QueryClient + qk registry
-│   ├── theme/tokens.ts                  spacing / radii / motion / shadows
+│   ├── theme/tokens.ts                  lightTokens + darkTokens (MVP palette: indigo brand, ink/paper/night colors)
+│   ├── theme/ThemeProvider.tsx          useTheme() context + nativewind bridge
+│   ├── store/theme.ts                   Zustand: mode (auto/light/dark) + setMode
+│   ├── lib/money.ts                     symbolOf / formatMoney / splitMoney
+│   ├── lib/currencies.ts                SEED_CURRENCIES catalogue
+│   ├── lib/speechRecognition.ts         Expo Go shim for expo-speech-recognition
 │   └── styles/global.css                NativeWind entry
 ├── packages/shared-types/src/index.ts   DTOs mirroring server response shapes (single source of truth mobile ↔ server)
 └── app.config.js                        APP_ENV-driven (preview / production / development); OTA code signing conditional on env
@@ -129,12 +133,13 @@ apps/mobile/
 ## Conventions in force
 
 - **Pressable styles:** static array-form ONLY for layout-bearing Pressables. (See "the big bug" above.)
-- **Foundation components:** `Screen` / `Card` / `Button` / `Input` / `Sheet` / `LoadingView` / `EmptyView` / `ErrorView` — all from `src/components/glass`. Never reinvent.
+- **Foundation components:** `Screen` / `Header` / `Card` / `Button` / `Input` / `ListItem` / `Sheet` / `Chip` / `Amount` / `Banner` / `EmptyState` / `ConfirmDialog` / `Toast` — all from `src/components/ui` + `src/components/layout`. Never reinvent.
+- **Colors:** read from `useTheme().tokens`. Never hardcode hex strings outside `src/theme/tokens.ts` + `tailwind.config.ts`. Brand is indigo `#6366F1` (light) / `#818CF8` (dark).
 - **Server state:** React Query, never `useEffect` fetches, never Zustand.
 - **Auth state:** Zustand store at `src/store/auth.ts`. Token lives in `expo-secure-store` (never AsyncStorage).
 - **Server URL:** read from `Constants.expoConfig.extra.apiUrl`. Default `https://server.getsetmvp.com`. Tenant always `voxpense`.
 - **`expenses` API `limit`:** ≤ 200 (server caps). `useInsightsWindow` + `useBudgetProgress` already enforce this — match it for any new aggregation query.
-- **Pixel-target:** every screen mirrors `~/productivity/hustle/voxpense/mockups/index.html`. The mockup file shares the same `tailwind.config.ts` palette, so className strings map 1:1.
+- **Pixel-target:** every screen mirrors `~/productivity/hustle/voxpense/mockups/index.html` (now the MVP visual language — flat solid cards, indigo brand, Inter font). The glass mockup at `mockups/index-glass-deprecated.html` is dead; do not use it.
 - **Commits:** Conventional Commits. Direct-to-`main` until v1 ships (see `~/.claude/.../memory/feedback_voxpense_direct_main.md` for why).
 
 ## What's deferred to v1.1+
