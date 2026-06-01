@@ -10,6 +10,7 @@ import { useAuth } from '../../src/store/auth';
 import {
   useBudgets,
   useCategories,
+  useGroups,
   useRecurring,
   useReminders,
   useWallets,
@@ -23,6 +24,7 @@ export default function SettingsScreen() {
 
   const wallets = useWallets();
   const categories = useCategories();
+  const groups = useGroups();
   const budgets = useBudgets();
   const recurring = useRecurring();
   const reminders = useReminders();
@@ -52,7 +54,7 @@ export default function SettingsScreen() {
         {/* Profile card */}
         <Pressable
           onPress={() => router.push('/settings/profile')}
-          style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, marginBottom: 20 })}
+          style={[{ marginBottom: 20 }]}
         >
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -107,6 +109,12 @@ export default function SettingsScreen() {
             label="Wallets"
             badge={wallets.data?.length ?? '—'}
             onPress={() => router.push('/settings/wallets')}
+          />
+          <NavRow
+            icon={<Ionicons name="folder-outline" size={20} color={iconColor} />}
+            label="Groups"
+            badge={groups.data?.length ?? '—'}
+            onPress={() => router.push('/settings/groups')}
           />
           <NavRow
             icon={<Ionicons name="pricetag-outline" size={20} color={iconColor} />}
