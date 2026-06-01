@@ -2,7 +2,7 @@
 // Stays separate from the glass <Screen> so we can keep it lightweight and
 // reuse it on dark camera-overlay screens too.
 
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -49,15 +49,7 @@ export function CaptureHeader({
   };
 
   return (
-    <View
-      style={{
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}
-    >
+    <View style={styles.bar}>
       {hideBack ? (
         <View style={{ width: 40 }} />
       ) : (
@@ -65,15 +57,10 @@ export function CaptureHeader({
           onPress={handleBack}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          style={({ pressed }) => ({
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: iconBg,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.7 : 1,
-          })}
+          style={({ pressed }) => [
+            styles.btn,
+            { backgroundColor: iconBg, opacity: pressed ? 0.7 : 1 },
+          ]}
         >
           <Ionicons name="chevron-back" size={22} color={iconColor} />
         </Pressable>
@@ -92,15 +79,10 @@ export function CaptureHeader({
           onPress={handleClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
-          style={({ pressed }) => ({
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: iconBg,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.7 : 1,
-          })}
+          style={({ pressed }) => [
+            styles.btn,
+            { backgroundColor: iconBg, opacity: pressed ? 0.7 : 1 },
+          ]}
         >
           <Ionicons name="close" size={22} color={iconColor} />
         </Pressable>
@@ -108,3 +90,20 @@ export function CaptureHeader({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  bar: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  btn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

@@ -1,7 +1,7 @@
 // Single-expense row used on Home (recent preview) + Expenses list.
 // Tap → onPress. Icon disc colored from category; falls back to monochrome.
 
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Category, Expense, Wallet } from '@voxpense/shared-types';
 
@@ -88,21 +88,18 @@ export function ExpenseRow({
     <Pressable
       onPress={onPress}
       android_ripple={{ color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.05)' }}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 10,
-        borderRadius: 14,
-        backgroundColor: isDark
-          ? pressed
-            ? 'rgba(31,41,55,0.85)'
-            : 'rgba(31,41,55,0.55)'
-          : pressed
-            ? 'rgba(255,255,255,0.85)'
-            : 'rgba(255,255,255,0.62)',
-        gap: 12,
-      })}
+      style={({ pressed }) => [
+        rowStyles.row,
+        {
+          backgroundColor: isDark
+            ? pressed
+              ? 'rgba(31,41,55,0.85)'
+              : 'rgba(31,41,55,0.55)'
+            : pressed
+              ? 'rgba(255,255,255,0.85)'
+              : 'rgba(255,255,255,0.62)',
+        },
+      ]}
     >
       <View
         style={{
@@ -139,3 +136,14 @@ export function ExpenseRow({
     </Pressable>
   );
 }
+
+const rowStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    gap: 12,
+  },
+});

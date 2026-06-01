@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
   useColorScheme,
@@ -90,28 +91,22 @@ export function FilterSheet({
     return (
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => ({
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingVertical: 7,
-          paddingHorizontal: 12,
-          borderRadius: 999,
-          backgroundColor: selected
-            ? brand
-            : isDark
-              ? 'rgba(31,41,55,0.7)'
-              : 'rgba(241,244,248,0.9)',
-          borderWidth: 1,
-          borderColor: selected
-            ? brand
-            : isDark
-              ? 'rgba(255,255,255,0.06)'
-              : 'rgba(15,23,42,0.06)',
-          opacity: pressed ? 0.85 : 1,
-          gap: 6,
-          marginRight: 8,
-          marginBottom: 8,
-        })}
+        style={({ pressed }) => [
+          chipStyles.base,
+          {
+            backgroundColor: selected
+              ? brand
+              : isDark
+                ? 'rgba(31,41,55,0.7)'
+                : 'rgba(241,244,248,0.9)',
+            borderColor: selected
+              ? brand
+              : isDark
+                ? 'rgba(255,255,255,0.06)'
+                : 'rgba(15,23,42,0.06)',
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}
       >
         {swatch && (
           <View
@@ -254,3 +249,17 @@ export function FilterSheet({
     </Sheet>
   );
 }
+
+const chipStyles = StyleSheet.create({
+  base: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+});

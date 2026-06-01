@@ -1,7 +1,7 @@
 // Floating action button — fixed bottom-right above the glass tab bar.
 
 import { ReactNode } from 'react';
-import { Pressable, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface FabProps {
@@ -21,33 +21,37 @@ export function Fab({
   right = 24,
   children,
 }: FabProps) {
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
+  // useColorScheme kept for future theming; currently unused as fab is brand-tinted only.
+  useColorScheme();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => ({
-        position: 'absolute',
-        right,
-        bottom,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: '#FF0000',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#3B82F6',
-        shadowOpacity: 0.45,
-        shadowRadius: 22,
-        shadowOffset: { width: 0, height: 12 },
-        elevation: 10,
-        opacity: pressed ? 0.9 : 1,
-        zIndex: 100,
-      })}
+      style={({ pressed }) => [
+        styles.fab,
+        { right, bottom, opacity: pressed ? 0.9 : 1 },
+      ]}
     >
       {children ?? <Ionicons name={icon} size={28} color="#FFFFFF" />}
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FF0000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#3B82F6',
+    shadowOpacity: 0.45,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
+    zIndex: 100,
+  },
+});
