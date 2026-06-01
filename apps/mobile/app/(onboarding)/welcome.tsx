@@ -3,7 +3,7 @@
 // primary "Get started" + ghost "I have an account" + legal footnote.
 
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, Text, View, useColorScheme } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen, Button } from '../../src/components/glass';
@@ -158,14 +158,10 @@ export default function WelcomeScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/(onboarding)/login')}
-            style={({ pressed }) => ({
-              marginTop: 12,
-              height: 48,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 16,
-              opacity: pressed ? 0.7 : 1,
-            })}
+            style={({ pressed }) => [
+              welcomeStyles.loginBtn,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
           >
             <Text style={{ color: ink, fontSize: 14, fontWeight: '500' }}>
               I have an account
@@ -189,3 +185,13 @@ export default function WelcomeScreen() {
     </Screen>
   );
 }
+
+const welcomeStyles = StyleSheet.create({
+  loginBtn: {
+    marginTop: 12,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+  },
+});

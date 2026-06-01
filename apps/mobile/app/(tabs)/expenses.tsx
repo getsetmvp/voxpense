@@ -10,6 +10,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  StyleSheet,
   Text,
   View,
   useColorScheme,
@@ -175,21 +176,19 @@ export default function ExpensesScreen() {
               });
             }}
             accessibilityLabel="Toggle search"
-            style={({ pressed }) => ({
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: searchOpen
-                ? isDark
-                  ? 'rgba(96,165,250,0.22)'
-                  : 'rgba(59,130,246,0.14)'
-                : isDark
-                  ? 'rgba(31,41,55,0.7)'
-                  : 'rgba(241,244,248,1)',
-              opacity: pressed ? 0.75 : 1,
-            })}
+            style={({ pressed }) => [
+              expStyles.headerBtn,
+              {
+                backgroundColor: searchOpen
+                  ? isDark
+                    ? 'rgba(96,165,250,0.22)'
+                    : 'rgba(59,130,246,0.14)'
+                  : isDark
+                    ? 'rgba(31,41,55,0.7)'
+                    : 'rgba(241,244,248,1)',
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
           >
             <Ionicons
               name="search"
@@ -200,15 +199,13 @@ export default function ExpensesScreen() {
           <Pressable
             onPress={() => setFilterOpen(true)}
             accessibilityLabel="Open filters"
-            style={({ pressed }) => ({
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)',
-              opacity: pressed ? 0.75 : 1,
-            })}
+            style={({ pressed }) => [
+              expStyles.headerBtn,
+              {
+                backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)',
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
           >
             <Ionicons name="options" size={18} color={ink} />
             {pills.length > 0 ? (
@@ -399,20 +396,13 @@ export default function ExpensesScreen() {
             onPress={() => router.push('/(capture)/voice')}
             accessibilityRole="button"
             accessibilityLabel="Add expense"
-            style={({ pressed }) => ({
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: brand,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#3B82F6',
-              shadowOpacity: 0.45,
-              shadowRadius: 22,
-              shadowOffset: { width: 0, height: 12 },
-              elevation: 12,
-              opacity: pressed ? 0.9 : 1,
-            })}
+            style={({ pressed }) => [
+              expStyles.fab,
+              {
+                backgroundColor: brand,
+                opacity: pressed ? 0.9 : 1,
+              },
+            ]}
           >
             <Ionicons name="add" size={28} color="#FFFFFF" />
           </Pressable>
@@ -477,3 +467,25 @@ function SkeletonList({ isDark }: { isDark: boolean }) {
     </View>
   );
 }
+
+const expStyles = StyleSheet.create({
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#3B82F6',
+    shadowOpacity: 0.45,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
+  },
+});

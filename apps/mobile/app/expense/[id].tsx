@@ -11,6 +11,7 @@ import {
   Alert,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
   useColorScheme,
@@ -308,12 +309,10 @@ export default function ExpenseDetailScreen() {
           mode === 'edit' ? (
             <Pressable
               onPress={onCancel}
-              style={({ pressed }) => ({
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 999,
-                opacity: pressed ? 0.7 : 1,
-              })}
+              style={({ pressed }) => [
+                detailStyles.cancelBtn,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
             >
               <Text style={{ color: meta, fontWeight: '600', fontSize: 13 }}>
                 Cancel
@@ -325,15 +324,13 @@ export default function ExpenseDetailScreen() {
                 /* more menu placeholder */
               }}
               accessibilityLabel="More"
-              style={({ pressed }) => ({
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: surfBg,
-                opacity: pressed ? 0.7 : 1,
-              })}
+              style={({ pressed }) => [
+                detailStyles.roundBtn,
+                {
+                  backgroundColor: surfBg,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
             >
               <Ionicons name="ellipsis-horizontal" size={18} color={ink} />
             </Pressable>
@@ -478,15 +475,13 @@ export default function ExpenseDetailScreen() {
                     onPress={() => {
                       /* playback not wired in MVP */
                     }}
-                    style={({ pressed }) => ({
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: brand,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      opacity: pressed ? 0.85 : 1,
-                    })}
+                    style={({ pressed }) => [
+                      detailStyles.playBtn,
+                      {
+                        backgroundColor: brand,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
                   >
                     <Ionicons name="play" size={16} color="#FFFFFF" />
                   </Pressable>
@@ -896,15 +891,13 @@ function TopChrome({
       <Pressable
         onPress={onBack}
         accessibilityLabel="Back"
-        style={({ pressed }) => ({
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: surfBg,
-          opacity: pressed ? 0.7 : 1,
-        })}
+        style={({ pressed }) => [
+          detailStyles.roundBtn,
+          {
+            backgroundColor: surfBg,
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
       >
         <Ionicons name="arrow-back" size={20} color={ink} />
       </Pressable>
@@ -1034,21 +1027,18 @@ function SelectRow({
     <View>
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => ({
-          flexDirection: 'row',
-          alignItems: 'center',
-          padding: 14,
-          borderRadius: 16,
-          backgroundColor: bg,
-          borderWidth: 1,
-          borderColor: error
-            ? '#EF4444'
-            : isDark
-              ? 'rgba(255,255,255,0.06)'
-              : 'rgba(15,23,42,0.06)',
-          opacity: pressed ? 0.85 : 1,
-          gap: 12,
-        })}
+        style={({ pressed }) => [
+          detailStyles.selectRow,
+          {
+            backgroundColor: bg,
+            borderColor: error
+              ? '#EF4444'
+              : isDark
+                ? 'rgba(255,255,255,0.06)'
+                : 'rgba(15,23,42,0.06)',
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}
       >
         <Ionicons name={icon} size={18} color={meta} />
         <View style={{ flex: 1 }}>
@@ -1113,20 +1103,55 @@ function FooterAction({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({
-        flex: 1,
-        height: 48,
-        borderRadius: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: bg,
-        gap: 8,
-        opacity: pressed ? 0.85 : 1,
-      })}
+      style={({ pressed }) => [
+        detailStyles.footerAction,
+        {
+          backgroundColor: bg,
+          opacity: pressed ? 0.85 : 1,
+        },
+      ]}
     >
       <Ionicons name={icon} size={18} color={fg} />
       <Text style={{ color: fg, fontSize: 14, fontWeight: '600' }}>{label}</Text>
     </Pressable>
   );
 }
+
+const detailStyles = StyleSheet.create({
+  cancelBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  roundBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  footerAction: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+});
