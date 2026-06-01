@@ -1,7 +1,10 @@
-// 08. ExpenseDetailScreen
-// View / inline-edit / delete. Inline edits stay local until Save; pickers
-// (category / wallet / group) open a glass Sheet. Delete confirms via destructive
-// Sheet button → soft-delete via DELETE /expenses/:id.
+// 08. ExpenseDetailScreen — pixel-match mockup screen 08.
+// Top: round 40 back + more.
+// Hero row: 56px rounded-3xl tinted icon, amount + merchant, category chip.
+// Voice-note glass card: play button + waveform + duration + italic transcript.
+// Detail rows: When (calendar), Wallet (wallet swatch + name + kind),
+// optional Note, AI confidence chip.
+// Footer: Edit (surf-l1) + Delete (bad/10 text-bad).
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -25,7 +28,7 @@ import {
   Sheet,
 } from '../../src/components/glass';
 import { PickerSheet } from '../../src/components/capture/PickerSheet';
-import { AmountDisplay } from '../../src/components/expense';
+import { WaveformBars } from '../../src/components/expense/WaveformBars';
 import {
   useDeleteExpense,
   useExpense,
@@ -37,7 +40,9 @@ import {
   useWallets,
 } from '../../src/queries/insights';
 import { useAuth } from '../../src/store/auth';
+import { formatCurrency } from '../../src/lib/format';
 import type { CreateExpenseBody } from '../../src/lib/endpoints';
+import type { Category, Wallet } from '@voxpense/shared-types';
 
 type Mode = 'view' | 'edit';
 
@@ -49,6 +54,70 @@ interface DraftState {
   walletId: string;
   groupId: string | null;
 }
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
+
+// ── helpers ───────────────────────────────────────────────────────────────
+
+function withAlpha(hex: string, alpha = 0.15): string {
+  const m = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (m.length === 3) {
+    const r = parseInt(m[0]! + m[0]!, 16);
+    const g = parseInt(m[1]! + m[1]!, 16);
+    const b = parseInt(m[2]! + m[2]!, 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  if (m.length === 6) {
+    const r = parseInt(m.slice(0, 2), 16);
+    const g = parseInt(m.slice(2, 4), 16);
+    const b = parseInt(m.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return hex;
+}
+
+function resolveCategoryIcon(icon?: string | null): IoniconName {
+  if (!icon) return 'ellipse-outline';
+  const k = icon.toLowerCase();
+  if (k.includes('food') || k.includes('utensil') || k.includes('restaurant'))
+    return 'restaurant';
+  if (k.includes('fuel') || k.includes('petrol') || k.includes('car')) return 'car';
+  if (k.includes('grocery') || k.includes('shop') || k.includes('cart')) return 'cart';
+  if (k.includes('movie') || k.includes('film') || k.includes('entertain'))
+    return 'film';
+  if (k.includes('coffee') || k.includes('cafe')) return 'cafe';
+  if (k.includes('home') || k.includes('house')) return 'home';
+  if (k.includes('health') || k.includes('medical')) return 'medkit';
+  if (k.includes('travel') || k.includes('plane')) return 'airplane';
+  if (k.includes('phone') || k.includes('bill')) return 'receipt';
+  if (k.includes('gift')) return 'gift';
+  if (k.includes('book') || k.includes('learn')) return 'book';
+  if (k.includes('clothes') || k.includes('apparel')) return 'shirt';
+  return 'pricetag-outline';
+}
+
+function walletKindColor(kind: Wallet['kind']): string {
+  switch (kind) {
+    case 'cash':
+      return '#10B981';
+    case 'card':
+      return '#3B82F6';
+    case 'upi':
+      return '#8B5CF6';
+    case 'bank':
+      return '#F59E0B';
+    default:
+      return '#94A3B8';
+  }
+}
+
+function splitAmount(formatted: string): { head: string; tail: string } {
+  const dot = formatted.lastIndexOf('.');
+  if (dot < 0) return { head: formatted, tail: '' };
+  return { head: formatted.slice(0, dot), tail: formatted.slice(dot) };
+}
+
+// ── screen ────────────────────────────────────────────────────────────────
 
 export default function ExpenseDetailScreen() {
   const router = useRouter();
@@ -64,7 +133,6 @@ export default function ExpenseDetailScreen() {
   const categoriesQ = useCategories();
   const walletsQ = useWallets();
   const groupsQ = useGroups();
-
   const updateMut = useUpdateExpense();
   const deleteMut = useDeleteExpense();
 
@@ -76,10 +144,8 @@ export default function ExpenseDetailScreen() {
   const [showGroup, setShowGroup] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
 
-  // Seed draft from server data once on load + whenever entering edit mode.
   useEffect(() => {
-    if (!expenseQ.data) return;
-    if (draft) return;
+    if (!expenseQ.data || draft) return;
     setDraft({
       amount: expenseQ.data.amount,
       merchant: expenseQ.data.merchant ?? '',
@@ -90,21 +156,26 @@ export default function ExpenseDetailScreen() {
     });
   }, [expenseQ.data, draft]);
 
+  const ink = isDark ? '#F8FAFC' : '#0F172A';
+  const meta = isDark ? '#94A3B8' : '#64748B';
+  const brand = isDark ? '#60A5FA' : '#3B82F6';
+  const surfBg = isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)';
+  const rowBg = isDark ? 'rgba(17,24,39,0.7)' : '#FFFFFF';
+
   if (!id) {
     return (
       <Screen>
-        <BackHeader onBack={() => router.back()} isDark={isDark} />
+        <TopChrome onBack={() => router.back()} isDark={isDark} />
         <View style={{ padding: 24 }}>
-          <Text style={{ color: isDark ? '#F8FAFC' : '#0F172A' }}>Missing expense id.</Text>
+          <Text style={{ color: ink }}>Missing expense id.</Text>
         </View>
       </Screen>
     );
   }
-
   if (expenseQ.isLoading || !expenseQ.data || !draft) {
     return (
       <Screen>
-        <BackHeader onBack={() => router.back()} isDark={isDark} />
+        <TopChrome onBack={() => router.back()} isDark={isDark} />
         <LoadingView label="Loading expense..." />
       </Screen>
     );
@@ -112,15 +183,9 @@ export default function ExpenseDetailScreen() {
   if (expenseQ.isError) {
     return (
       <Screen>
-        <BackHeader onBack={() => router.back()} isDark={isDark} />
+        <TopChrome onBack={() => router.back()} isDark={isDark} />
         <View style={{ padding: 24, gap: 12 }}>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: '600',
-              color: isDark ? '#F8FAFC' : '#0F172A',
-            }}
-          >
+          <Text style={{ fontSize: 16, fontWeight: '600', color: ink }}>
             Couldn't load expense.
           </Text>
           <Button onPress={() => expenseQ.refetch()} variant="secondary">
@@ -134,13 +199,11 @@ export default function ExpenseDetailScreen() {
   const exp = expenseQ.data;
   const expId: string = id;
   const currency = exp.currency || fallbackCurrency;
-  const category = exp.categoryId
+  const category: Category | null = exp.categoryId
     ? (categoriesQ.data ?? []).find((c) => c.id === exp.categoryId) ?? null
     : null;
-  const wallet = (walletsQ.data ?? []).find((w) => w.id === exp.walletId) ?? null;
-  const group = exp.groupId
-    ? (groupsQ.data ?? []).find((g) => g.id === exp.groupId) ?? null
-    : null;
+  const wallet: Wallet | null =
+    (walletsQ.data ?? []).find((w) => w.id === exp.walletId) ?? null;
   const draftCategory = draft.categoryId
     ? (categoriesQ.data ?? []).find((c) => c.id === draft.categoryId) ?? null
     : null;
@@ -149,10 +212,38 @@ export default function ExpenseDetailScreen() {
     ? (groupsQ.data ?? []).find((g) => g.id === draft.groupId) ?? null
     : null;
 
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
-  const meta = isDark ? '#94A3B8' : '#64748B';
+  const catColor = category?.color ?? brand;
+  const catIcon = resolveCategoryIcon(category?.icon);
+  const { head: amountHead, tail: amountTail } = splitAmount(
+    formatCurrency(exp.amount, currency),
+  );
 
-  // ── validation + save ──────────────────────────────────────────────────
+  const occurredLabel = (() => {
+    try {
+      const d = new Date(exp.occurredAt);
+      return isSameDay(d, new Date())
+        ? `Today, ${format(d, 'h:mm a')}`
+        : isSameDay(d, addDaysSimple(new Date(), -1))
+          ? `Yesterday, ${format(d, 'h:mm a')}`
+          : format(d, 'EEE d MMM, h:mm a');
+    } catch {
+      return exp.occurredAt;
+    }
+  })();
+
+  const confidence =
+    typeof exp.parseMeta?.confidence === 'number'
+      ? Math.round(exp.parseMeta.confidence * 100)
+      : null;
+  const confidenceTone =
+    confidence === null
+      ? null
+      : confidence >= 85
+        ? { bg: 'rgba(16,185,129,0.15)', fg: '#10B981' }
+        : confidence >= 60
+          ? { bg: 'rgba(245,158,11,0.15)', fg: '#F59E0B' }
+          : { bg: 'rgba(239,68,68,0.15)', fg: '#EF4444' };
+
   function validateDraft(d: DraftState): typeof errors {
     const errs: typeof errors = {};
     const num = Number(d.amount);
@@ -208,126 +299,124 @@ export default function ExpenseDetailScreen() {
     }
   }
 
-  const occurredLabel = (() => {
-    try {
-      return format(new Date(exp.occurredAt), 'EEE d MMM, h:mm a');
-    } catch {
-      return exp.occurredAt;
-    }
-  })();
-
-  const confidence =
-    typeof exp.parseMeta?.confidence === 'number'
-      ? Math.round(exp.parseMeta.confidence * 100)
-      : null;
-
   return (
     <Screen>
-      <BackHeader
+      <TopChrome
         onBack={() => router.back()}
         isDark={isDark}
         right={
-          mode === 'view' ? (
+          mode === 'edit' ? (
             <Pressable
-              onPress={() => setMode('edit')}
+              onPress={onCancel}
               style={({ pressed }) => ({
-                paddingHorizontal: 14,
-                paddingVertical: 7,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
                 borderRadius: 999,
-                backgroundColor: isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.10)',
-                opacity: pressed ? 0.8 : 1,
+                opacity: pressed ? 0.7 : 1,
               })}
-              accessibilityLabel="Edit"
             >
-              <Text
-                style={{
-                  color: isDark ? '#60A5FA' : '#3B82F6',
-                  fontWeight: '700',
-                  fontSize: 13,
-                }}
-              >
-                Edit
+              <Text style={{ color: meta, fontWeight: '600', fontSize: 13 }}>
+                Cancel
               </Text>
             </Pressable>
           ) : (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Pressable
-                onPress={onCancel}
-                style={({ pressed }) => ({
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                  borderRadius: 999,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Text style={{ color: meta, fontWeight: '600', fontSize: 13 }}>
-                  Cancel
-                </Text>
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => {
+                /* more menu placeholder */
+              }}
+              accessibilityLabel="More"
+              style={({ pressed }) => ({
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: surfBg,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Ionicons name="ellipsis-horizontal" size={18} color={ink} />
+            </Pressable>
           )
         }
       />
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero: amount + merchant + category chip */}
+        {/* Hero: icon + amount/merchant + category chip */}
         {mode === 'view' ? (
-          <View style={{ marginTop: 8, gap: 8 }}>
-            <Text
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              marginTop: 8,
+            }}
+          >
+            <View
               style={{
-                fontSize: 11,
-                fontWeight: '700',
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-                color: meta,
+                width: 56,
+                height: 56,
+                borderRadius: 24,
+                backgroundColor: withAlpha(catColor, 0.16),
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              Amount
-            </Text>
-            <AmountDisplay amount={exp.amount} currency={currency} size="xl" />
-            {exp.merchant && (
+              <Ionicons name={catIcon} size={28} color={catColor} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <Text
+                  style={{
+                    fontSize: 24,
+                    fontWeight: '700',
+                    color: ink,
+                    letterSpacing: -0.4,
+                    fontVariant: ['tabular-nums'],
+                  }}
+                  numberOfLines={1}
+                >
+                  {amountHead}
+                </Text>
+                {amountTail ? (
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: '500',
+                      color: meta,
+                      marginLeft: 1,
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {amountTail}
+                  </Text>
+                ) : null}
+              </View>
               <Text
+                numberOfLines={1}
+                style={{ fontSize: 13, color: meta, marginTop: 2 }}
+              >
+                {exp.merchant || exp.note || 'Expense'}
+              </Text>
+            </View>
+            {category ? (
+              <View
                 style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: ink,
-                  marginTop: 4,
+                  paddingVertical: 5,
+                  paddingHorizontal: 10,
+                  borderRadius: 999,
+                  backgroundColor: withAlpha(catColor, 0.12),
                 }}
               >
-                {exp.merchant}
-              </Text>
-            )}
-            {category && (
-              <View style={{ flexDirection: 'row', marginTop: 6 }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: 5,
-                    paddingHorizontal: 10,
-                    borderRadius: 999,
-                    backgroundColor: 'rgba(59,130,246,0.10)',
-                    gap: 6,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: category.color,
-                    }}
-                  />
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: ink }}>
-                    {category.name}
-                  </Text>
-                </View>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: catColor }}>
+                  {category.name}
+                </Text>
               </View>
-            )}
+            ) : null}
           </View>
         ) : (
           <View style={{ marginTop: 8, gap: 14 }}>
@@ -359,10 +448,10 @@ export default function ExpenseDetailScreen() {
           </View>
         )}
 
-        {/* Voice note card (read-only) */}
-        {(exp.source === 'voice' || typeof exp.parseMeta?.transcript === 'string') && (
-          <View style={{ marginTop: 18 }}>
-            <Card>
+        {/* Voice note glass card */}
+        {(exp.source === 'voice' || typeof exp.parseMeta?.transcript === 'string') ? (
+          <View style={{ marginTop: 20 }}>
+            <Card rounded="xl">
               <Text
                 style={{
                   fontSize: 11,
@@ -370,81 +459,136 @@ export default function ExpenseDetailScreen() {
                   letterSpacing: 1,
                   textTransform: 'uppercase',
                   color: meta,
-                  marginBottom: 8,
+                  marginBottom: 10,
                 }}
               >
                 {exp.source === 'voice' ? 'Voice note' : 'Source transcript'}
               </Text>
-              {typeof exp.parseMeta?.transcript === 'string' && (
+              {exp.source === 'voice' ? (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
+                >
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Play voice note"
+                    onPress={() => {
+                      /* playback not wired in MVP */
+                    }}
+                    style={({ pressed }) => ({
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: brand,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <Ionicons name="play" size={16} color="#FFFFFF" />
+                  </Pressable>
+                  <View style={{ flex: 1, height: 28, justifyContent: 'center' }}>
+                    <WaveformBars />
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: meta,
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    0:04
+                  </Text>
+                </View>
+              ) : null}
+              {typeof exp.parseMeta?.transcript === 'string' ? (
                 <Text
                   style={{
-                    fontSize: 13,
+                    fontSize: 12,
                     fontStyle: 'italic',
                     color: meta,
-                    lineHeight: 19,
+                    lineHeight: 18,
+                    marginTop: exp.source === 'voice' ? 10 : 0,
                   }}
                 >
                   &ldquo;{exp.parseMeta.transcript}&rdquo;
                 </Text>
-              )}
+              ) : null}
             </Card>
           </View>
-        )}
+        ) : null}
 
-        {/* Details rows */}
-        <View style={{ marginTop: 18, gap: 10 }}>
+        {/* Detail rows */}
+        <View style={{ marginTop: 20, gap: 12 }}>
           <DetailRow
             icon="calendar-outline"
-            label="When"
-            value={occurredLabel}
+            label={occurredLabel}
+            bg={rowBg}
+            ink={ink}
+            meta={meta}
             isDark={isDark}
           />
 
-          <SelectRow
-            icon="card-outline"
-            label="Wallet"
-            value={mode === 'edit' ? (draftWallet?.name ?? 'Pick a wallet') : (wallet?.name ?? '—')}
-            placeholder={!draftWallet && mode === 'edit'}
-            isDark={isDark}
-            disabled={mode !== 'edit'}
-            error={errors.walletId}
-            onPress={() => setShowWallet(true)}
-          />
+          {mode === 'view' ? (
+            wallet ? (
+              <WalletRow wallet={wallet} bg={rowBg} ink={ink} meta={meta} isDark={isDark} />
+            ) : null
+          ) : (
+            <SelectRow
+              icon="card-outline"
+              label="Wallet"
+              value={draftWallet?.name ?? 'Pick a wallet'}
+              placeholder={!draftWallet}
+              bg={rowBg}
+              ink={ink}
+              meta={meta}
+              isDark={isDark}
+              error={errors.walletId}
+              onPress={() => setShowWallet(true)}
+            />
+          )}
 
-          <SelectRow
-            icon="pricetag-outline"
-            label="Category"
-            value={
-              mode === 'edit'
-                ? draftCategory?.name ?? 'No category'
-                : category?.name ?? 'No category'
-            }
-            placeholder={mode === 'edit' && !draftCategory}
-            isDark={isDark}
-            disabled={mode !== 'edit'}
-            onPress={() => setShowCat(true)}
-          />
+          {mode === 'edit' ? (
+            <SelectRow
+              icon="pricetag-outline"
+              label="Category"
+              value={draftCategory?.name ?? 'No category'}
+              placeholder={!draftCategory}
+              bg={rowBg}
+              ink={ink}
+              meta={meta}
+              isDark={isDark}
+              onPress={() => setShowCat(true)}
+            />
+          ) : null}
 
-          <SelectRow
-            icon="folder-outline"
-            label="Group"
-            value={
-              mode === 'edit' ? draftGroup?.name ?? 'No group' : group?.name ?? 'No group'
-            }
-            placeholder={mode === 'edit' && !draftGroup}
-            isDark={isDark}
-            disabled={mode !== 'edit'}
-            onPress={() => setShowGroup(true)}
-          />
+          {mode === 'edit' ? (
+            <SelectRow
+              icon="folder-outline"
+              label="Group"
+              value={draftGroup?.name ?? 'No group'}
+              placeholder={!draftGroup}
+              bg={rowBg}
+              ink={ink}
+              meta={meta}
+              isDark={isDark}
+              onPress={() => setShowGroup(true)}
+            />
+          ) : null}
 
-          {mode === 'view' && exp.note && (
+          {mode === 'view' && exp.note ? (
             <View
               style={{
                 padding: 14,
-                borderRadius: 14,
-                backgroundColor: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.7)',
+                borderRadius: 16,
+                backgroundColor: rowBg,
                 borderWidth: 1,
-                borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
+                borderColor: isDark
+                  ? 'rgba(255,255,255,0.06)'
+                  : 'rgba(15,23,42,0.06)',
               }}
             >
               <Text
@@ -454,35 +598,35 @@ export default function ExpenseDetailScreen() {
                   letterSpacing: 1,
                   textTransform: 'uppercase',
                   color: meta,
-                  marginBottom: 6,
+                  marginBottom: 4,
                 }}
               >
                 Note
               </Text>
               <Text style={{ fontSize: 14, color: ink, lineHeight: 20 }}>{exp.note}</Text>
             </View>
-          )}
+          ) : null}
 
-          {confidence !== null && (
+          {mode === 'view' && confidence !== null && confidenceTone ? (
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: 14,
-                borderRadius: 14,
-                backgroundColor: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.7)',
+                borderRadius: 16,
+                backgroundColor: rowBg,
                 borderWidth: 1,
-                borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
+                borderColor: isDark
+                  ? 'rgba(255,255,255,0.06)'
+                  : 'rgba(15,23,42,0.06)',
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons
-                  name="flash"
-                  size={18}
-                  color={isDark ? '#60A5FA' : '#3B82F6'}
-                />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: ink }}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+              >
+                <Ionicons name="flash" size={18} color={brand} />
+                <Text style={{ fontSize: 14, fontWeight: '500', color: ink }}>
                   AI confidence
                 </Text>
               </View>
@@ -491,31 +635,21 @@ export default function ExpenseDetailScreen() {
                   paddingVertical: 4,
                   paddingHorizontal: 10,
                   borderRadius: 999,
-                  backgroundColor:
-                    confidence >= 85
-                      ? 'rgba(16,185,129,0.15)'
-                      : confidence >= 60
-                        ? 'rgba(245,158,11,0.15)'
-                        : 'rgba(239,68,68,0.15)',
+                  backgroundColor: confidenceTone.bg,
                 }}
               >
                 <Text
                   style={{
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: '700',
-                    color:
-                      confidence >= 85
-                        ? '#10B981'
-                        : confidence >= 60
-                          ? '#F59E0B'
-                          : '#EF4444',
+                    color: confidenceTone.fg,
                   }}
                 >
                   {confidence}%
                 </Text>
               </View>
             </View>
-          )}
+          ) : null}
         </View>
       </ScrollView>
 
@@ -526,40 +660,36 @@ export default function ExpenseDetailScreen() {
           left: 0,
           right: 0,
           bottom: 0,
-          paddingHorizontal: 16,
+          paddingHorizontal: 20,
           paddingTop: 12,
           paddingBottom: 24,
           flexDirection: 'row',
-          gap: 10,
-          backgroundColor: isDark ? 'rgba(11,18,32,0.85)' : 'rgba(248,250,252,0.85)',
+          gap: 12,
+          backgroundColor: isDark
+            ? 'rgba(11,18,32,0.85)'
+            : 'rgba(248,250,252,0.85)',
           borderTopWidth: 1,
-          borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
+          borderTopColor: isDark
+            ? 'rgba(255,255,255,0.06)'
+            : 'rgba(15,23,42,0.06)',
         }}
       >
         {mode === 'view' ? (
           <>
-            <Button
-              variant="secondary"
-              fullWidth
-              size="lg"
+            <FooterAction
+              label="Edit"
+              icon="create-outline"
               onPress={() => setMode('edit')}
-              leftIcon={
-                <Ionicons name="create-outline" size={18} color={isDark ? '#60A5FA' : '#3B82F6'} />
-              }
-              style={{ flex: 1 }}
-            >
-              Edit
-            </Button>
-            <Button
-              variant="danger"
-              fullWidth
-              size="lg"
+              isDark={isDark}
+              variant="surface"
+            />
+            <FooterAction
+              label="Delete"
+              icon="trash-outline"
               onPress={() => setShowDelete(true)}
-              leftIcon={<Ionicons name="trash-outline" size={18} color="#FFFFFF" />}
-              style={{ flex: 1 }}
-            >
-              Delete
-            </Button>
+              isDark={isDark}
+              variant="danger"
+            />
           </>
         ) : (
           <>
@@ -630,9 +760,7 @@ export default function ExpenseDetailScreen() {
           sublabel: w.kind,
         }))}
         selectedId={draft.walletId}
-        onSelect={(it) =>
-          setDraft((d) => (d ? { ...d, walletId: it.id } : d))
-        }
+        onSelect={(it) => setDraft((d) => (d ? { ...d, walletId: it.id } : d))}
         emptyLabel="No wallets yet"
       />
 
@@ -670,7 +798,7 @@ export default function ExpenseDetailScreen() {
         emptyLabel="No groups yet"
       />
 
-      {/* Delete confirm */}
+      {/* Delete confirm sheet */}
       <Sheet open={showDelete} onClose={() => setShowDelete(false)}>
         <View style={{ gap: 12 }}>
           <View
@@ -726,7 +854,24 @@ export default function ExpenseDetailScreen() {
   );
 }
 
-function BackHeader({
+// ── small helpers ────────────────────────────────────────────────────────
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+function addDaysSimple(d: Date, n: number): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() + n);
+  return out;
+}
+
+// ── sub-components ───────────────────────────────────────────────────────
+
+function TopChrome({
   onBack,
   right,
   isDark,
@@ -735,15 +880,17 @@ function BackHeader({
   right?: React.ReactNode;
   isDark: boolean;
 }) {
+  const surfBg = isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)';
+  const ink = isDark ? '#F8FAFC' : '#0F172A';
   return (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         paddingTop: 8,
-        paddingBottom: 4,
+        paddingBottom: 8,
       }}
     >
       <Pressable
@@ -755,70 +902,109 @@ function BackHeader({
           borderRadius: 20,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(255,255,255,0.7)',
+          backgroundColor: surfBg,
           opacity: pressed ? 0.7 : 1,
         })}
       >
-        <Ionicons name="arrow-back" size={20} color={isDark ? '#F8FAFC' : '#0F172A'} />
+        <Ionicons name="arrow-back" size={20} color={ink} />
       </Pressable>
       {right}
     </View>
   );
 }
 
-interface DetailRowProps {
-  icon: keyof typeof Ionicons.glyphMap;
+function DetailRow({
+  icon,
+  label,
+  bg,
+  ink,
+  meta,
+  isDark,
+}: {
+  icon: IoniconName;
   label: string;
-  value: string;
+  bg: string;
+  ink: string;
+  meta: string;
   isDark: boolean;
-}
-
-function DetailRow({ icon, label, value, isDark }: DetailRowProps) {
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
+}) {
   return (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         padding: 14,
-        borderRadius: 14,
-        backgroundColor: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.7)',
+        borderRadius: 16,
+        backgroundColor: bg,
         borderWidth: 1,
         borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
-        gap: 12,
       }}
     >
-      <Ionicons name={icon} size={18} color={meta} />
-      <View style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontSize: 11,
-            fontWeight: '700',
-            letterSpacing: 1,
-            textTransform: 'uppercase',
-            color: meta,
-          }}
-        >
-          {label}
-        </Text>
-        <Text style={{ fontSize: 14, fontWeight: '600', color: ink, marginTop: 2 }}>
-          {value}
-        </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Ionicons name={icon} size={18} color={meta} />
+        <Text style={{ fontSize: 14, fontWeight: '500', color: ink }}>{label}</Text>
       </View>
+      <Ionicons name="chevron-forward" size={18} color={meta} />
     </View>
   );
 }
 
-interface SelectRowProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-  placeholder?: boolean;
+function WalletRow({
+  wallet,
+  bg,
+  ink,
+  meta,
+  isDark,
+}: {
+  wallet: Wallet;
+  bg: string;
+  ink: string;
+  meta: string;
   isDark: boolean;
-  disabled?: boolean;
-  error?: string;
-  onPress: () => void;
+}) {
+  const swatch = walletKindColor(wallet.kind);
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 14,
+        borderRadius: 16,
+        backgroundColor: bg,
+        borderWidth: 1,
+        borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            backgroundColor: swatch,
+          }}
+        />
+        <View>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: ink }}>
+            {wallet.name}
+          </Text>
+          <Text
+            style={{
+              fontSize: 11,
+              color: meta,
+              marginTop: 2,
+              textTransform: 'capitalize',
+            }}
+          >
+            {wallet.kind}
+          </Text>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={meta} />
+    </View>
+  );
 }
 
 function SelectRow({
@@ -826,32 +1012,42 @@ function SelectRow({
   label,
   value,
   placeholder,
+  bg,
+  ink,
+  meta,
   isDark,
-  disabled,
   error,
   onPress,
-}: SelectRowProps) {
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
+}: {
+  icon: IoniconName;
+  label: string;
+  value: string;
+  placeholder?: boolean;
+  bg: string;
+  ink: string;
+  meta: string;
+  isDark: boolean;
+  error?: string;
+  onPress: () => void;
+}) {
   return (
     <View>
       <Pressable
-        onPress={disabled ? undefined : onPress}
-        disabled={disabled}
+        onPress={onPress}
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
           padding: 14,
-          borderRadius: 14,
-          backgroundColor: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.7)',
+          borderRadius: 16,
+          backgroundColor: bg,
           borderWidth: 1,
           borderColor: error
             ? '#EF4444'
             : isDark
               ? 'rgba(255,255,255,0.06)'
               : 'rgba(15,23,42,0.06)',
+          opacity: pressed ? 0.85 : 1,
           gap: 12,
-          opacity: pressed && !disabled ? 0.8 : 1,
         })}
       >
         <Ionicons name={icon} size={18} color={meta} />
@@ -870,7 +1066,7 @@ function SelectRow({
           <Text
             style={{
               fontSize: 14,
-              fontWeight: '600',
+              fontWeight: '500',
               color: placeholder ? meta : ink,
               marginTop: 2,
             }}
@@ -878,22 +1074,59 @@ function SelectRow({
             {value}
           </Text>
         </View>
-        {!disabled && (
-          <Ionicons name="chevron-forward" size={18} color={meta} />
-        )}
+        <Ionicons name="chevron-forward" size={18} color={meta} />
       </Pressable>
-      {error && (
-        <Text
-          style={{
-            fontSize: 12,
-            color: '#EF4444',
-            marginTop: 6,
-            marginLeft: 6,
-          }}
-        >
+      {error ? (
+        <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 6, marginLeft: 6 }}>
           {error}
         </Text>
-      )}
+      ) : null}
     </View>
+  );
+}
+
+function FooterAction({
+  label,
+  icon,
+  onPress,
+  isDark,
+  variant,
+}: {
+  label: string;
+  icon: IoniconName;
+  onPress: () => void;
+  isDark: boolean;
+  variant: 'surface' | 'danger';
+}) {
+  const ink = isDark ? '#F8FAFC' : '#0F172A';
+  const bg =
+    variant === 'danger'
+      ? isDark
+        ? 'rgba(248,113,113,0.18)'
+        : 'rgba(239,68,68,0.10)'
+      : isDark
+        ? 'rgba(31,41,55,0.85)'
+        : 'rgba(241,244,248,1)';
+  const fg = variant === 'danger' ? (isDark ? '#F87171' : '#EF4444') : ink;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({
+        flex: 1,
+        height: 48,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: bg,
+        gap: 8,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Ionicons name={icon} size={18} color={fg} />
+      <Text style={{ color: fg, fontSize: 14, fontWeight: '600' }}>{label}</Text>
+    </Pressable>
   );
 }
