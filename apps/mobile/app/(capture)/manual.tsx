@@ -1,46 +1,68 @@
-// Screen 14. ManualEntryScreen — custom number pad + category/wallet pickers.
+// Screen 14. ManualEntryScreen — pixel-match rebuild of mockup 14.
 //
-// Flow:
-//   - amount entered via custom keypad (numeric, INR by default)
-//   - category, wallet, group pickers via PickerSheet
-//   - "AI suggest" chip → /ai/categorize w/ note + amount
-//   - Save → POST /expenses (source: 'manual') → invalidate queries → dismiss
+// Layout:
+//   - Header: back arrow + "Add expense" + spacer
+//   - Center: ₹AMOUNT.00 hero number
+//   - Rows: category (with AI suggest chip on right), wallet, merchant, note
+//   - Bottom: custom 3-col 12-key number pad + Save button (full-width brand)
+//
+// On Save:
+//   - validate amount > 0 + wallet present
+//   - POST /expenses (source: 'manual') → invalidate ['expenses'] → dismissAll + replace home
 
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View, useColorScheme } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  useColorScheme,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Screen, Card, Button } from '../../src/components/glass';
 import { CaptureHeader, PickerSheet, type PickerItem } from '../../src/components/capture';
-import { categories as categoriesApi, wallets as walletsApi, groups as groupsApi, expenses as expensesApi, ai } from '../../src/lib/endpoints';
+import {
+  categories as categoriesApi,
+  wallets as walletsApi,
+  groups as groupsApi,
+  expenses as expensesApi,
+  ai,
+} from '../../src/lib/endpoints';
 import { ApiError } from '../../src/lib/api';
 import { qk } from '../../src/query/client';
 import { useAuth } from '../../src/store/auth';
-import { radii } from '../../src/theme/tokens';
 import { formatCurrency } from '../../src/lib/format';
 
-interface KeyValue {
-  label: string;
-  digit?: string;
-  action?: 'backspace' | 'dot';
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Keypad config — 4 rows of 3 keys (digits, then `. 0 ⌫`)
+type KeyValue =
+  | { kind: 'digit'; label: string; digit: string }
+  | { kind: 'dot'; label: '.' }
+  | { kind: 'back'; label: '⌫' };
 
 const KEYS: KeyValue[] = [
-  { label: '1', digit: '1' },
-  { label: '2', digit: '2' },
-  { label: '3', digit: '3' },
-  { label: '4', digit: '4' },
-  { label: '5', digit: '5' },
-  { label: '6', digit: '6' },
-  { label: '7', digit: '7' },
-  { label: '8', digit: '8' },
-  { label: '9', digit: '9' },
-  { label: '.', action: 'dot' },
-  { label: '0', digit: '0' },
-  { label: '⌫', action: 'backspace' },
+  { kind: 'digit', label: '1', digit: '1' },
+  { kind: 'digit', label: '2', digit: '2' },
+  { kind: 'digit', label: '3', digit: '3' },
+  { kind: 'digit', label: '4', digit: '4' },
+  { kind: 'digit', label: '5', digit: '5' },
+  { kind: 'digit', label: '6', digit: '6' },
+  { kind: 'digit', label: '7', digit: '7' },
+  { kind: 'digit', label: '8', digit: '8' },
+  { kind: 'digit', label: '9', digit: '9' },
+  { kind: 'dot', label: '.' },
+  { kind: 'digit', label: '0', digit: '0' },
+  { kind: 'back', label: '⌫' },
 ];
+
+// Static row styles (function-form Pressable is fine for keypad keys since
+// they're not layout-bearing — but we keep style derivation deterministic).
+const ROW_BG_LIGHT = '#F1F4F8';
+const ROW_BG_DARK = '#1F2937';
 
 export default function ManualEntryScreen() {
   const router = useRouter();
@@ -75,7 +97,6 @@ export default function ManualEntryScreen() {
     queryFn: () => groupsApi.list(),
   });
 
-  // Auto-pick first wallet if user hasn't chosen one.
   const walletItems: PickerItem[] = useMemo(
     () =>
       (walletsQ.data ?? []).map((w) => ({
@@ -86,16 +107,11 @@ export default function ManualEntryScreen() {
     [walletsQ.data],
   );
   const categoryItems: PickerItem[] = useMemo(
-    () =>
-      (categoriesQ.data ?? []).map((c) => ({
-        id: c.id,
-        label: c.name,
-      })),
+    () => (categoriesQ.data ?? []).map((c) => ({ id: c.id, label: c.name })),
     [categoriesQ.data],
   );
   const groupItems: PickerItem[] = useMemo(
-    () =>
-      (groupsQ.data ?? []).map((g) => ({ id: g.id, label: g.name })),
+    () => (groupsQ.data ?? []).map((g) => ({ id: g.id, label: g.name })),
     [groupsQ.data],
   );
 
@@ -114,19 +130,15 @@ export default function ManualEntryScreen() {
 
   const handleKey = useCallback((key: KeyValue) => {
     setAmount((prev) => {
-      if (key.action === 'backspace') return prev.slice(0, -1);
-      if (key.action === 'dot') {
+      if (key.kind === 'back') return prev.slice(0, -1);
+      if (key.kind === 'dot') {
         if (prev.includes('.')) return prev;
         return prev === '' ? '0.' : prev + '.';
       }
-      if (key.digit !== undefined) {
-        // limit decimals to 2 places
-        if (prev.includes('.') && prev.split('.')[1]!.length >= 2) return prev;
-        // avoid leading-zero like "0123" but allow "0." cases
-        if (prev === '0' && key.digit !== '.') return key.digit;
-        return prev + key.digit;
-      }
-      return prev;
+      // digit
+      if (prev.includes('.') && prev.split('.')[1]!.length >= 2) return prev;
+      if (prev === '0' && key.digit !== '.') return key.digit;
+      return prev + key.digit;
     });
   }, []);
 
@@ -144,7 +156,7 @@ export default function ManualEntryScreen() {
       });
       if (res.categoryId) setCategoryId(res.categoryId);
     } catch {
-      // Soft-fail — user can pick manually.
+      // Soft-fail — user picks manually.
     } finally {
       setAiBusy(false);
     }
@@ -195,175 +207,136 @@ export default function ManualEntryScreen() {
     createMutation.mutate();
   }, [amount, walletId, createMutation]);
 
-  const amountDisplay = amount
-    ? formatCurrency(Number(amount) || 0, currency)
-    : currency === 'INR'
-      ? '₹0'
-      : `${currency} 0`;
+  // Split amount into whole + decimal parts for hero display.
+  const { whole, decimal } = useMemo(() => splitAmount(amount, currency), [amount, currency]);
+
+  const rowBg = isDark ? ROW_BG_DARK : ROW_BG_LIGHT;
+  const inkPrimary = isDark ? '#F8FAFC' : '#0F172A';
+  const inkSecondary = isDark ? '#94A3B8' : '#64748B';
+  const inkPlaceholder = isDark ? '#64748B' : '#94A3B8';
 
   return (
     <Screen>
-      <CaptureHeader title="Add expense" />
+      <CaptureHeader title="Add expense" rightAccessory={<View style={{ width: 40 }} />} />
 
-      <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 8 }}>
-        {/* Amount display */}
-        <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+      <View className="flex-1 px-5 pt-2">
+        {/* Hero amount */}
+        <View className="items-center py-2">
           <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 1.4,
-              color: isDark ? '#94A3B8' : '#64748B',
-            }}
+            className="text-[11px] font-bold tracking-widest"
+            style={{ color: inkSecondary }}
           >
             AMOUNT
           </Text>
-          <Text
-            style={{
-              fontSize: 44,
-              fontWeight: '800',
-              marginTop: 2,
-              color: isDark ? '#F8FAFC' : '#0F172A',
-            }}
-          >
-            {amountDisplay}
-          </Text>
+          <View className="flex-row items-baseline mt-1">
+            <Text className="text-5xl font-extrabold" style={{ color: inkPrimary }}>
+              {whole}
+            </Text>
+            <Text className="text-2xl font-bold" style={{ color: inkSecondary }}>
+              {decimal}
+            </Text>
+          </View>
         </View>
 
-        {/* Pickers + inputs */}
-        <View style={{ gap: 10, marginTop: 8 }}>
+        {/* Rows */}
+        <View className="mt-3" style={{ gap: 8 }}>
+          {/* Category row with AI suggest chip */}
           <PickerRow
-            label={selectedCategory?.label ?? 'Pick category'}
-            placeholder={selectedCategory ? undefined : 'Category'}
+            label={selectedCategory?.label ?? 'Pick a category'}
+            placeholder={!selectedCategory}
             icon="pricetags-outline"
             onPress={() => setShowCategory(true)}
+            isDark={isDark}
+            rowBg={rowBg}
             trailing={
               <Pressable
                 onPress={handleAiSuggest}
                 disabled={aiBusy}
-                style={({ pressed }) => ({
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 999,
-                  backgroundColor: '#3B82F6',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  opacity: aiBusy ? 0.6 : pressed ? 0.85 : 1,
-                })}
+                style={AI_CHIP_STYLE}
               >
                 {aiBusy ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Ionicons name="sparkles" size={12} color="#FFFFFF" />
                 )}
-                <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
+                <Text className="text-white text-[11px] font-bold ml-1">
                   AI suggest
                 </Text>
               </Pressable>
             }
-            isDark={isDark}
           />
 
+          {/* Wallet row */}
           <PickerRow
-            label={selectedWallet?.label ?? 'Pick wallet'}
-            placeholder={selectedWallet ? undefined : 'Wallet'}
+            label={selectedWallet?.label ?? 'Pick a wallet'}
+            placeholder={!selectedWallet}
             icon="card-outline"
             onPress={() => setShowWallet(true)}
             isDark={isDark}
+            rowBg={rowBg}
           />
 
+          {/* Group row (optional) */}
           <PickerRow
             label={selectedGroup?.label ?? 'No group'}
-            placeholder={selectedGroup ? undefined : 'Group (optional)'}
+            placeholder={!selectedGroup}
             icon="people-outline"
             onPress={() => setShowGroup(true)}
             isDark={isDark}
+            rowBg={rowBg}
           />
 
+          {/* Merchant input */}
           <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              padding: 12,
-              borderRadius: radii.lg,
-              backgroundColor: isDark ? '#1F2937' : '#F1F4F8',
-            }}
+            className="flex-row items-center p-3"
+            style={{ gap: 10, borderRadius: 14, backgroundColor: rowBg }}
           >
-            <Ionicons name="storefront-outline" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            <Ionicons name="storefront-outline" size={18} color={inkSecondary} />
             <TextInput
               value={merchant}
               onChangeText={setMerchant}
               placeholder="Merchant (optional)"
-              placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-              style={{
-                flex: 1,
-                fontSize: 14,
-                color: isDark ? '#F8FAFC' : '#0F172A',
-                paddingVertical: 0,
-              }}
+              placeholderTextColor={inkPlaceholder}
+              style={{ flex: 1, fontSize: 14, color: inkPrimary, paddingVertical: 0 }}
             />
           </View>
 
+          {/* Note input */}
           <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              padding: 12,
-              borderRadius: radii.lg,
-              backgroundColor: isDark ? '#1F2937' : '#F1F4F8',
-            }}
+            className="flex-row items-center p-3"
+            style={{ gap: 10, borderRadius: 14, backgroundColor: rowBg }}
           >
-            <Ionicons name="document-text-outline" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            <Ionicons name="document-text-outline" size={18} color={inkSecondary} />
             <TextInput
               value={note}
               onChangeText={setNote}
               placeholder="Note (optional)"
-              placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-              style={{
-                flex: 1,
-                fontSize: 14,
-                color: isDark ? '#F8FAFC' : '#0F172A',
-                paddingVertical: 0,
-              }}
+              placeholderTextColor={inkPlaceholder}
+              style={{ flex: 1, fontSize: 14, color: inkPrimary, paddingVertical: 0 }}
             />
           </View>
         </View>
 
-        <View style={{ flex: 1 }} />
+        <View className="flex-1" />
 
         {formError && (
           <Card padded={false} style={{ marginBottom: 8 }}>
-            <Text style={{ padding: 12, color: '#EF4444', fontSize: 13, fontWeight: '600' }}>
+            <Text className="p-3 text-[#EF4444] text-[13px] font-semibold">
               {formError}
             </Text>
           </Card>
         )}
 
-        {/* Number pad */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+        {/* Number pad: 3-col grid, 4 rows */}
+        <View className="flex-row flex-wrap mb-2" style={{ gap: 6 }}>
           {KEYS.map((k) => (
-            <Pressable
+            <NumKey
               key={k.label}
+              label={k.label}
+              isDark={isDark}
               onPress={() => handleKey(k)}
-              style={({ pressed }) => ({
-                width: '32%',
-                height: 48,
-                borderRadius: radii.md,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
-                borderWidth: 1,
-                borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
-                opacity: pressed ? 0.75 : 1,
-              })}
-            >
-              <Text style={{ fontSize: 20, fontWeight: '600', color: isDark ? '#F8FAFC' : '#0F172A' }}>
-                {k.label}
-              </Text>
-            </Pressable>
+              isBackspace={k.kind === 'back'}
+            />
           ))}
         </View>
 
@@ -410,29 +383,55 @@ export default function ManualEntryScreen() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AI_CHIP_STYLE = {
+  paddingHorizontal: 10,
+  paddingVertical: 6,
+  borderRadius: 999,
+  backgroundColor: '#3B82F6',
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+};
+
+function splitAmount(raw: string, currency: string): { whole: string; decimal: string } {
+  const sym = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : `${currency} `;
+  if (!raw) return { whole: `${sym}0`, decimal: '.00' };
+  if (raw.endsWith('.')) {
+    const wholeFormatted = formatCurrency(Number(raw.slice(0, -1) || 0), currency).split('.')[0]!;
+    return { whole: wholeFormatted, decimal: '.' };
+  }
+  if (raw.includes('.')) {
+    const [w, d] = raw.split('.');
+    const wholeFormatted = formatCurrency(Number(w || 0), currency).split('.')[0]!;
+    return { whole: wholeFormatted, decimal: `.${d ?? ''}` };
+  }
+  const formatted = formatCurrency(Number(raw) || 0, currency);
+  if (formatted.includes('.')) {
+    const [w, d] = formatted.split('.');
+    return { whole: w!, decimal: `.${d!}` };
+  }
+  return { whole: formatted, decimal: '.00' };
+}
+
 interface PickerRowProps {
   label: string;
-  placeholder?: string;
+  placeholder?: boolean;
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   trailing?: React.ReactNode;
   isDark: boolean;
+  rowBg: string;
 }
 
-function PickerRow({ label, placeholder, icon, onPress, trailing, isDark }: PickerRowProps) {
-  const isPlaceholder = !!placeholder;
+function PickerRow({ label, placeholder, icon, onPress, trailing, isDark, rowBg }: PickerRowProps) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        padding: 12,
-        borderRadius: radii.lg,
-        backgroundColor: isDark ? '#1F2937' : '#F1F4F8',
-        opacity: pressed ? 0.8 : 1,
-      })}
+      style={[
+        ROW_STATIC_STYLE,
+        { backgroundColor: rowBg },
+      ]}
     >
       <Ionicons name={icon} size={18} color={isDark ? '#94A3B8' : '#64748B'} />
       <Text
@@ -440,16 +439,13 @@ function PickerRow({ label, placeholder, icon, onPress, trailing, isDark }: Pick
           flex: 1,
           fontSize: 14,
           fontWeight: '600',
-          color: isPlaceholder
-            ? isDark
-              ? '#64748B'
-              : '#94A3B8'
-            : isDark
-              ? '#F8FAFC'
-              : '#0F172A',
+          color: placeholder
+            ? isDark ? '#64748B' : '#94A3B8'
+            : isDark ? '#F8FAFC' : '#0F172A',
         }}
+        numberOfLines={1}
       >
-        {isPlaceholder ? placeholder : label}
+        {label}
       </Text>
       {trailing ?? (
         <Ionicons name="chevron-forward" size={18} color={isDark ? '#94A3B8' : '#94A3B8'} />
@@ -457,3 +453,58 @@ function PickerRow({ label, placeholder, icon, onPress, trailing, isDark }: Pick
     </Pressable>
   );
 }
+
+// STATIC array-form style — layout-bearing Pressable per scope rules.
+const ROW_STATIC_STYLE = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 10,
+  padding: 12,
+  borderRadius: 14,
+};
+
+interface NumKeyProps {
+  label: string;
+  onPress: () => void;
+  isDark: boolean;
+  isBackspace: boolean;
+}
+
+function NumKey({ label, onPress, isDark, isBackspace }: NumKeyProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        NUMKEY_STATIC_STYLE,
+        {
+          backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+          borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
+        },
+      ]}
+    >
+      {isBackspace ? (
+        <Ionicons name="backspace-outline" size={22} color={isDark ? '#F8FAFC' : '#0F172A'} />
+      ) : (
+        <Text
+          style={{
+            fontSize: 22,
+            fontWeight: '600',
+            color: isDark ? '#F8FAFC' : '#0F172A',
+          }}
+        >
+          {label}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
+// STATIC array-form style — layout-bearing Pressable.
+const NUMKEY_STATIC_STYLE = {
+  width: '32%' as const,
+  height: 52,
+  borderRadius: 14,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  borderWidth: 1,
+};
