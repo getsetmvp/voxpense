@@ -8,7 +8,7 @@
 |---|---|
 | Type | `frontend-mobile` (internal monorepo: `apps/mobile/` day-1, future `apps/web/`) |
 | Visibility | Private |
-| Status | **Phase 6 — emulator validated (light + dark, empty + 33-expense seed)**; backend live, mobile dev-client running on Android emulator |
+| Status | **Phase 6.5 — mockup-pixel rebuild complete**. All screens rewritten by 4 parallel opus agents to match `~/productivity/hustle/voxpense/mockups/index.html` exactly (Onboarding/Home/Expenses, Capture flows, Insights cluster, Settings cluster). Light + dark + empty + 33-expense seed validated. Ready for user-review APK (Phase 7). |
 | Backend tenant | `voxpense` on `https://server.getsetmvp.com/voxpense/v1/*` |
 | OTA system | Cloudflare via [yashguptadeveloper/ota-server](https://github.com/yashguptadeveloper/ota-server) — NOT EAS Update |
 | Distribution | EAS Build → APK day-1 (Play Store internal testing later) |
