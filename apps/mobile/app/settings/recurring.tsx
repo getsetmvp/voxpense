@@ -1,13 +1,33 @@
-// Recurring entries list — next run + amount + frequency. Sheet to edit/delete.
+// Recurring list — pixel-match mockup §7 screen 20 + 21 (edit sheet).
+// Layout: header (back + title + plus) → card rows with avatar icon +
+// name (+ paused chip) + "freq · wallet" subtitle + amount + Next:date.
+// Paused rows render at 60% opacity. Plus-button in header + bottom-right
+// FAB both open the edit sheet.
 
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, useColorScheme, Alert } from 'react-native';
+import {
+  ScrollView,
+  View,
+  Text,
+  Pressable,
+  useColorScheme,
+  Alert,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { Recurring } from '@voxpense/shared-types';
 
-import { Screen, Card, Button, Input, Sheet, LoadingView, EmptyView } from '../../src/components/glass';
-import { FAB, ScreenHeader, SegmentedControl, Toggle } from '../../src/components/settings';
 import {
+  Screen,
+  Button,
+  Input,
+  Sheet,
+  LoadingView,
+  EmptyView,
+} from '../../src/components/glass';
+import { SegmentedControl, Toggle } from '../../src/components/settings';
+import {
+  useCategories,
   useCreateRecurring,
   useDeleteRecurring,
   useRecurring,
@@ -16,6 +36,7 @@ import {
 } from '../../src/queries/insights';
 import { useAuth } from '../../src/store/auth';
 import { formatCurrency, formatDate } from '../../src/lib/format';
+import { shadows } from '../../src/theme/tokens';
 
 type Freq = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -36,8 +57,14 @@ function rruleToFreq(rrule: string): Freq {
   return 'monthly';
 }
 
-function freqLabel(rrule: string): string {
-  return rruleToFreq(rrule);
+function freqLabel(freq: Freq): string {
+  const map: Record<Freq, string> = {
+    daily: 'Daily',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
+    yearly: 'Yearly',
+  };
+  return map[freq];
 }
 
 interface DraftRecurring {
@@ -47,10 +74,21 @@ interface DraftRecurring {
   freq: Freq;
   nextRunAt: string;
   walletId: string;
+  categoryId: string | null;
   active: boolean;
 }
 
+const ROW_PRESSABLE_STYLE = [{ marginBottom: 0 }];
+const HEADER_BTN_STYLE_BASE = {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
 export default function RecurringScreen() {
+  const router = useRouter();
   const scheme = useColorScheme() ?? 'light';
   const isDark = scheme === 'dark';
   const user = useAuth((s) => s.user);
@@ -58,6 +96,7 @@ export default function RecurringScreen() {
 
   const recurring = useRecurring();
   const wallets = useWallets();
+  const cats = useCategories();
   const create = useCreateRecurring();
   const update = useUpdateRecurring();
   const remove = useDeleteRecurring();
@@ -66,6 +105,10 @@ export default function RecurringScreen() {
 
   const ink = isDark ? '#F8FAFC' : '#0F172A';
   const meta = isDark ? '#94A3B8' : '#64748B';
+  const surf = isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.9)';
+  const cardBg = isDark ? '#0F172A' : '#FFFFFF';
+  const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)';
+  const brand = isDark ? '#60A5FA' : '#3B82F6';
 
   const defaultDraft = (): DraftRecurring => {
     const firstWalletId = wallets.data?.[0]?.id ?? '';
@@ -75,6 +118,7 @@ export default function RecurringScreen() {
       freq: 'monthly',
       nextRunAt: new Date().toISOString(),
       walletId: firstWalletId,
+      categoryId: null,
       active: true,
     };
   };
@@ -87,9 +131,13 @@ export default function RecurringScreen() {
       freq: rruleToFreq(r.rrule),
       nextRunAt: r.nextRunAt,
       walletId: r.walletId,
+      categoryId: r.categoryId,
       active: r.active,
     });
   };
+
+  const walletName = (id: string): string =>
+    wallets.data?.find((w) => w.id === id)?.name ?? 'Wallet';
 
   const submit = async () => {
     if (!draft) return;
@@ -112,6 +160,7 @@ export default function RecurringScreen() {
             rrule: freqToRrule(draft.freq),
             nextRunAt: draft.nextRunAt,
             walletId: draft.walletId,
+            categoryId: draft.categoryId,
             active: draft.active,
           },
         });
@@ -123,12 +172,21 @@ export default function RecurringScreen() {
           rrule: freqToRrule(draft.freq),
           nextRunAt: draft.nextRunAt,
           walletId: draft.walletId,
+          categoryId: draft.categoryId ?? undefined,
           active: draft.active,
         });
       }
       setDraft(null);
     } catch (e) {
       Alert.alert('Save failed', e instanceof Error ? e.message : 'Try again.');
+    }
+  };
+
+  const toggleActive = async (r: Recurring) => {
+    try {
+      await update.mutateAsync({ id: r.id, body: { active: !r.active } });
+    } catch (e) {
+      Alert.alert('Failed', e instanceof Error ? e.message : 'Try again.');
     }
   };
 
@@ -150,9 +208,40 @@ export default function RecurringScreen() {
     ]);
   };
 
+  const iconColor = (r: Recurring): string => {
+    if (!r.active) return '#94A3B8';
+    return cats.data?.find((c) => c.id === r.categoryId)?.color ?? '#3B82F6';
+  };
+
   return (
     <Screen>
-      <ScreenHeader title="Recurring" />
+      {/* Mockup header */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={[HEADER_BTN_STYLE_BASE, { backgroundColor: surf }]}
+          accessibilityLabel="Back"
+        >
+          <Ionicons name="arrow-back" size={20} color={ink} />
+        </Pressable>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: ink }}>Recurring</Text>
+        <Pressable
+          onPress={() => setDraft(defaultDraft())}
+          style={[HEADER_BTN_STYLE_BASE, { backgroundColor: brand }]}
+          accessibilityLabel="Add recurring"
+        >
+          <Ionicons name="add" size={22} color="#FFFFFF" />
+        </Pressable>
+      </View>
+
       {recurring.isLoading ? (
         <LoadingView />
       ) : (recurring.data ?? []).length === 0 ? (
@@ -162,58 +251,195 @@ export default function RecurringScreen() {
           action={{ label: 'Add recurring', onPress: () => setDraft(defaultDraft()) }}
         />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140, gap: 10 }}>
-          {(recurring.data ?? []).map((r) => (
-            <Pressable
-              key={r.id}
-              onPress={() => openEdit(r)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-            >
-              <Card>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 140, gap: 10 }}
+        >
+          {(recurring.data ?? []).map((r) => {
+            const color = iconColor(r);
+            const iconBg = `${color}26`;
+            const freq = rruleToFreq(r.rrule);
+            return (
+              <Pressable
+                key={r.id}
+                onPress={() => openEdit(r)}
+                style={ROW_PRESSABLE_STYLE}
+                accessibilityRole="button"
+              >
+                <View
+                  style={{
+                    padding: 16,
+                    borderRadius: 24,
+                    backgroundColor: cardBg,
+                    borderWidth: 1,
+                    borderColor: cardBorder,
+                    opacity: r.active ? 1 : 0.6,
+                    ...shadows.card,
+                  }}
+                >
                   <View
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 12,
-                      backgroundColor: isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.12)',
+                      flexDirection: 'row',
                       alignItems: 'center',
-                      justifyContent: 'center',
+                      justifyContent: 'space-between',
                     }}
                   >
-                    <Ionicons
-                      name={r.active ? 'repeat' : 'pause-outline'}
-                      size={20}
-                      color={isDark ? '#60A5FA' : '#3B82F6'}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{ fontSize: 15, fontWeight: '600', color: ink }}
-                      numberOfLines={1}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        flex: 1,
+                      }}
                     >
-                      {r.name}
-                      {!r.active && (
-                        <Text style={{ color: meta, fontWeight: '500', fontSize: 11 }}>
-                          {' '}
-                          · paused
-                        </Text>
-                      )}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: meta, marginTop: 2 }}>
-                      {freqLabel(r.rrule)} · Next: {formatDate(r.nextRunAt, 'd MMM')}
-                    </Text>
+                      <View
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 16,
+                          backgroundColor: iconBg,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons
+                          name={r.active ? 'repeat' : 'pause-circle-outline'}
+                          size={20}
+                          color={color}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <Text
+                            style={{ fontSize: 14, fontWeight: '600', color: ink }}
+                            numberOfLines={1}
+                          >
+                            {r.name}
+                          </Text>
+                          {!r.active && (
+                            <View
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: 999,
+                                backgroundColor: isDark
+                                  ? 'rgba(148,163,184,0.2)'
+                                  : 'rgba(148,163,184,0.18)',
+                              }}
+                            >
+                              <Text
+                                style={{ fontSize: 10, fontWeight: '600', color: meta }}
+                              >
+                                paused
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          {/* Frequency chip */}
+                          <View
+                            style={{
+                              paddingHorizontal: 7,
+                              paddingVertical: 2,
+                              borderRadius: 999,
+                              backgroundColor: isDark
+                                ? 'rgba(96,165,250,0.18)'
+                                : 'rgba(59,130,246,0.12)',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontWeight: '600',
+                                color: brand,
+                              }}
+                            >
+                              {freqLabel(freq)}
+                            </Text>
+                          </View>
+                          <Text style={{ fontSize: 11, color: meta }} numberOfLines={1}>
+                            · {walletName(r.walletId)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: ink }}>
+                        {formatCurrency(r.amount, currency)}
+                      </Text>
+                      <Text
+                        style={{ fontSize: 10, color: meta, marginTop: 2 }}
+                        numberOfLines={1}
+                      >
+                        Next: {formatDate(r.nextRunAt, 'd MMM')}
+                      </Text>
+                    </View>
                   </View>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: ink }}>
-                    {formatCurrency(r.amount, currency)}
-                  </Text>
+                  {/* Active toggle row */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: 12,
+                      paddingTop: 12,
+                      borderTopWidth: 1,
+                      borderTopColor: isDark
+                        ? 'rgba(255,255,255,0.06)'
+                        : 'rgba(15,23,42,0.06)',
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, color: meta }}>
+                      {r.active ? 'Active' : 'Paused'}
+                    </Text>
+                    <Toggle value={r.active} onValueChange={() => toggleActive(r)} />
+                  </View>
                 </View>
-              </Card>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
         </ScrollView>
       )}
-      <FAB onPress={() => setDraft(defaultDraft())} />
+
+      {/* Bottom-right FAB — spec-mandated pattern */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1000,
+        }}
+      >
+        <View
+          pointerEvents="box-none"
+          style={{ position: 'absolute', right: 24, bottom: 96 }}
+        >
+          <Pressable
+            onPress={() => setDraft(defaultDraft())}
+            style={({ pressed }) => ({
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: brand,
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: [{ scale: pressed ? 0.94 : 1 }],
+              ...shadows.fab,
+            })}
+            accessibilityLabel="Add recurring"
+          >
+            <Ionicons name="add" size={28} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
 
       <Sheet open={draft !== null} onClose={() => setDraft(null)}>
         {draft && (
@@ -250,7 +476,7 @@ export default function RecurringScreen() {
               />
             </View>
             <Input
-              label="Next run date (ISO)"
+              label="Next run date (YYYY-MM-DD)"
               placeholder={new Date().toISOString().slice(0, 10)}
               value={draft.nextRunAt.slice(0, 10)}
               onChangeText={(d) => {
