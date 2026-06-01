@@ -8,37 +8,43 @@
 |---|---|
 | Type | `frontend-mobile` (internal monorepo: `apps/mobile/` day-1, future `apps/web/`) |
 | Visibility | Private |
-| Status | **Phase 6.6 — fully mockup-pixel-matched + Android Fabric layout bug fixed across 25 files**. Backend live, dev client running, seeded test user persists. Next: Phase 7 user-review APK. See [`STATE.md`](./STATE.md) for full pickup context. |
+| Status | **Pre-launch.** Feature-complete on emulator + physical Vivo V2437 phone. Two unpushed commits sit on local `main` (worklets dep + back-flash fix). Next: signed preview APK → daily-use trial → Play Store. See [`STATE.md`](./STATE.md) for current state and [`PLAYSTORE.md`](./PLAYSTORE.md) for the sequenced launch plan. |
 | Backend tenant | `voxpense` on `https://server.getsetmvp.com/voxpense/v1/*` |
 | OTA system | Cloudflare via [yashguptadeveloper/ota-server](https://github.com/yashguptadeveloper/ota-server) — NOT EAS Update |
-| Distribution | EAS Build → APK day-1 (Play Store internal testing later) |
+| Distribution | EAS Build → APK (preview) + AAB (production). Play Store internal track is the next milestone. |
 | Owner | Yash |
 | Founded | 2026-05-31 |
 
 ## What it is
 
-Voice-first personal expense tracker. Three capture modes — speak it, snap a receipt, type it — all parsed by AI into categorized expenses. Multi-device sync via shared backend. Conversational Q&A over your data. Production-grade fintech feel.
+Voice-first personal expense tracker. Three capture modes — speak it, snap a receipt, type it — all parsed by AI into categorized expenses. Multi-device sync via a shared backend. Conversational Q&A over your data. Production-grade fintech feel.
 
-12 features per design.md: voice capture, photo receipt, manual entry, list, detail, AI Q&A, auto-categorize, budgets, recurring, reminders, wallets, multi-currency.
+Twelve features per `design.md`: voice capture, photo receipt, manual entry, list, detail, AI Q&A, auto-categorize, budgets, recurring, reminders, wallets, multi-currency.
 
-## Stack
+## Stack (effective as of 2026-06-01)
 
 | Layer | Choice |
 |---|---|
-| Framework | Expo SDK 53 (managed) + React Native 0.79 |
+| Framework | Expo SDK 53 (managed) — `expo ~53.0.0` |
+| React Native | `0.79.6` |
+| React | `19.0.0` |
 | Language | TypeScript strict |
-| Routing | Expo Router (file-based) |
-| Styling | NativeWind v4 (Tailwind) |
-| State | Zustand + React Query (Phase 5) |
+| Routing | `expo-router ~5.1.11` (file-based) |
+| Styling | NativeWind v4 (Tailwind 3.4) + theme tokens |
+| Animation | `react-native-reanimated ~3.17.5` (+ `react-native-worklets ^0.5.1`, required by `react-native-css-interop`) |
+| Bridge | New architecture (Fabric) enabled |
+| State | Zustand (auth + theme) + React Query (server state) |
 | Auth storage | `expo-secure-store` (NOT AsyncStorage) |
 | Voice | `expo-speech-recognition` (on-device STT) |
 | Camera | `expo-camera` |
-| API client | hand-typed fetch wrapper, `src/lib/api.ts` |
+| API client | hand-typed `fetch` wrapper at `src/lib/api.ts` (token auto-refresh) |
 | Backend | tenant `voxpense` in shared [yashguptadeveloper/server](https://github.com/yashguptadeveloper/server) |
 | AI | server-proxied via `ai.askchimps.ai` |
 | Build | EAS Build (3 profiles: development / preview / production) |
-| OTA | Cloudflare Worker + R2 via `ota-server` |
-| Error tracking | Sentry React Native (Phase 5) |
+| OTA | Cloudflare Worker + R2 via `ota-server` (self-hosted, NOT EAS Update) |
+| Error tracking | Sentry React Native — DSN slot exists, SDK not yet wired (Phase C1 of `PLAYSTORE.md`) |
+
+SDK 54 was attempted in commit `1ecb1e7` and rolled back in `d822fa2` (`expo-file-system 19` API breakage). Re-attempt only after the Play Store launch.
 
 ## Repository layout
 
@@ -47,14 +53,20 @@ voxpense/
 ├── apps/
 │   ├── mobile/                  Expo app (day-1)
 │   │   ├── app/                 Expo Router pages
-│   │   ├── src/lib/             api, auth, theme
-│   │   ├── src/styles/          global.css for NativeWind
+│   │   ├── src/components/      UI primitives + layout + feature widgets
+│   │   ├── src/lib/             api, endpoints, money, currencies, insights
+│   │   ├── src/queries/         React Query hooks
+│   │   ├── src/store/           Zustand (auth, theme)
+│   │   ├── src/theme/           tokens + ThemeProvider
+│   │   ├── src/styles/global.css  NativeWind entry
 │   │   ├── hooks/useOTAUpdates.ts
 │   │   ├── scripts/             OTA build + upload
-│   │   ├── certs/certificate.pem (PUBLIC, safe to commit)
-│   │   ├── app.config.js        dynamic Expo config
+│   │   ├── certs/certificate.pem  (PUBLIC, safe to commit)
+│   │   ├── app.config.js        dynamic Expo config (env-driven)
+│   │   ├── app.json             static EAS projectId holder
 │   │   ├── eas.json             3 EAS profiles
 │   │   ├── tailwind.config.ts   palette per design.md
+│   │   ├── android/             prebuild output (committed)
 │   │   └── package.json
 │   └── web/                     (deferred; planned for later)
 ├── packages/
@@ -62,9 +74,10 @@ voxpense/
 ├── .github/workflows/
 │   └── ota-publish.yaml         push to main → preview / tag v* → production
 ├── README.md                    this file
+├── STATE.md                     current state for fresh Claude sessions
+├── PLAYSTORE.md                 sequenced Play Store launch plan
 ├── CLAUDE.md                    Claude session primer
 ├── CONVENTIONS.md               repo-local rules
-├── INTEGRATION.md               (n/a — voxpense IS a consumer, not a producer)
 └── package.json                 pnpm workspaces root
 ```
 
@@ -75,17 +88,20 @@ voxpense/
 cd ~/Projects/voxpense
 pnpm install
 cd apps/mobile
-cp .env.example .env.dev   # fill in EXPO_PUBLIC_API_URL + Cloudflare credentials
-pnpm dev                    # Expo Metro dev server (requires Dev Client APK installed first)
+cp .env.example .env.dev
+pnpm dev   # Metro on 8081, --dev-client mode
 ```
 
 For first-time Dev Client install:
+
 ```bash
 cd apps/mobile
-npx eas build --profile development --platform android
+pnpm dlx eas-cli@latest login
+eas build --profile development --platform android
 # install resulting APK on Android device
-# then pnpm dev for daily work
 ```
+
+Then for daily work: `pnpm dev` and launch the deep link as in [`STATE.md`](./STATE.md) → "Pick up where I left off".
 
 ## Env files
 
@@ -94,81 +110,94 @@ Three-file convention per [`~/productivity/standards/env-files.md`](../../produc
 | File | Source | Committed? | Purpose |
 |---|---|---|---|
 | `.env.example` | this repo | ✅ | Placeholder contract |
-| `.env.dev` | local laptop | ❌ | Local dev secrets (fresh-random) |
-| `.env.prod` | mirror of `/srv/server/.env`-style canonical | ❌ | Local mirror of production secrets, **1Password is canonical** |
+| `.env.dev` | local laptop | ❌ | Local dev secrets |
+| `.env.prod` | mirror of `/srv/server/.env`-style canonical | ❌ | Local mirror; **1Password is canonical** |
 
 `EXPO_PUBLIC_*` vars are baked into the bundle (visible to clients) — never put server-side secrets there.
 
 ## Deploy / distribution
 
-### OTA (most updates)
+### OTA (most JS-only updates)
 
 ```bash
 git commit -m "feat: ..."
-git push origin main            # auto: GitHub Actions → builds bundle → uploads R2 → triggers ota-server → preview channel
+git push origin main            # GitHub Actions: bundle → R2 → ota-server → preview channel
 # OR
 git tag v1.0.1
-git push --tags                  # auto: same flow but production channel
+git push --tags                  # same flow but production channel
 ```
 
-Installed APKs auto-fetch on next cold start. No native rebuild needed for JS changes.
+Installed APKs auto-fetch the new manifest on cold start. No native rebuild needed for JS changes.
 
 ### Native rebuild (Expo SDK / app icon / new native dep)
 
 ```bash
 cd apps/mobile
-npx eas build --profile production --platform android   # AAB for Play Store
-npx eas submit --platform android --track internal      # to Play Console internal track
+eas build --profile production --platform android   # AAB for Play Store
+eas submit --platform android --track internal      # to Play Console internal track
 ```
+
+Full sequence from current state → live Play Store listing: [`PLAYSTORE.md`](./PLAYSTORE.md).
+
+## Local dev quickstart
+
+```bash
+# 1. Verify backend
+curl -sS https://server.getsetmvp.com/voxpense/v1/health
+
+# 2. Boot the dev emulator
+~/Library/Android/sdk/emulator/emulator -avd voxpense_dev -port 5554 -no-snapshot-load -gpu host -no-metrics &
+until [ "$(adb -s emulator-5554 shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do sleep 4; done
+
+# 3. Start Metro
+cd ~/Projects/voxpense/apps/mobile
+APP_ENV=preview pnpm exec expo start --dev-client --port 8081 --host lan &
+
+# 4. Launch the dev client on the emulator (and/or phone)
+adb -s emulator-5554 reverse tcp:8081 tcp:8081
+adb -s emulator-5554 shell am force-stop com.yashguptadeveloper.voxpense
+adb -s emulator-5554 shell am start -a android.intent.action.VIEW \
+  -d 'voxpense://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+```
+
+Test user: `e2e-1780254222@test.invalid` / `test-pass-123` (33 expenses + full feature seed).
 
 ## Adding a feature
 
-1. Read `~/productivity/hustle/voxpense/design.md` (locked spec)
-2. Identify which Phase 5 agent's scope the feature belongs to (see § 19 partition)
-3. Direct commit to `main` until v1 ships (per project policy); afterwards: branch `feat/<feature>` + PR
-4. Implement w/ unit tests + screen render tests
-5. Run on Android emulator + take screenshot for PR
-6. CD auto-publishes OTA to preview channel on push to main; tag `v*.*.*` for production
+1. Read `~/productivity/hustle/voxpense/design.md` (locked spec) and the matching mockup at `mockups/index.html`.
+2. Implement with the foundation components from `src/components/ui` + `src/components/layout`. Don't reinvent.
+3. Direct commit to `main` until v1 ships; afterwards: branch `feat/<feature>` + PR.
+4. Run `pnpm exec tsc --noEmit` + smoke on emulator (light + dark).
+5. CD auto-publishes OTA to preview channel on push to main; tag `v*.*.*` for production.
 
-## Local dev quickstart (Android emulator)
+Conventions:
 
-```bash
-# 1. Start an Android emulator (Pixel API 34 or any AVD)
-~/Library/Android/sdk/emulator/emulator -avd <avd-name> -no-snapshot-load &
+- Server state via React Query, never `useEffect` fetches.
+- Auth via the Zustand store at `src/store/auth.ts`; token in `expo-secure-store`.
+- Theme via `useTheme().tokens` only; no hex strings outside `src/theme/tokens.ts`.
+- Pressable styles: static array-form for any layout-bearing Pressable (Android Fabric bug — see `STATE.md`).
+- Stack layouts: every `Stack` sets `contentStyle.backgroundColor` from theme tokens (otherwise back transitions flash white — also in `STATE.md`).
 
-# 2. Wait for boot, then build + install the dev client APK once
-cd ~/Projects/voxpense/apps/mobile
-APP_ENV=preview pnpm run android   # ~5–10 min first time, ~30s incremental
+## Build state (last sweep, 2026-06-01)
 
-# 3. Subsequent runs: just start Metro
-APP_ENV=preview pnpm start
-# Then on the device: open the VoxPense (Preview) app → tap dev server row
-```
+End-to-end manual QA on emulator-5556 (fresh boot, second AVD) covering both light and dark themes. Zero FATAL / AndroidRuntime / JS Exception in logcat.
 
-The dev client is a separate install from the production app — both can coexist on the device because they have different `bundleIdentifier` / `package` names in `app.config.js`.
-
-## Build state (Phase 6 validation, 2026-06-01)
-
-| Surface | Empty state | Seeded state (3 wallets / 8 categories / 33 expenses / 4 budgets / 3 reminders / 3 recurring) | Light | Dark |
+| Surface | Empty | Seeded | Light | Dark |
 |---|---|---|---|---|
-| Welcome / Login / Signup | ✓ | n/a | ✓ | ✓ |
-| Home (greeting + week summary + quick-add + recent) | ✓ | ✓ (₹2,169 week, grouped recent rows w/ category icons) | ✓ | ✓ |
-| Expenses (date-grouped infinite scroll + filters + FAB) | ✓ | ✓ (date headers w/ day totals, category icons, wallet labels) | ✓ | ✓ |
-| Insights (metrics + donut + bar + top merchants + AI ask) | ✓ ("No expenses yet") | ✓ (₹14.8k 14-day spend, donut top-5, top-3 merchants) | ✓ | ✓ |
-| Settings tab (grouped nav w/ counts + chevrons right-aligned) | ✓ | ✓ (Wallets 3, Categories 8, Budgets 4, Recurring 3, Reminders 3) | ✓ | ✓ |
-| Profile (avatar + name/email + prefs + log out) | ✓ ("VoxPense member" fallback when createdAt missing) | n/a | ✓ | ✓ |
-| Preferences (theme + currency + voice toggles) | ✓ | ✓ | ✓ | ✓ |
-| Wallets (gradient hero cards per kind) | ✓ | ✓ (Cash green / HDFC Debit purple / GPay orange) | ✓ | ✓ |
-| Categories (grouped by group, icon + color + chevron) | ✓ | ✓ | ✓ | ✓ |
-| Budgets (progress bars + status chips, sheet to add/edit) | ✓ | ✓ (4 monthly budgets w/ progress) | ✓ | ✓ |
-| Recurring (next-run + freq + amount) | ✓ | ✓ (Rent / Gym / Netflix) | ✓ | ✓ |
-| Reminders (bucketed overdue/today/this-week) | ✓ | ✓ | ✓ | ✓ |
-| Voice capture modal (mic + transcript + AI parse) | ✓ | ✓ | n/a (full-bleed) | n/a |
-| Photo capture (camera w/ frame guide + receipt OCR) | ✓ permission flow + camera live | ✓ | n/a | n/a |
-| Manual entry (form + pickers) | ✓ | ✓ | ✓ | ✓ |
-| AI Confirm (parsed preview + edit + save) | ✓ | ✓ | ✓ | ✓ |
+| Onboarding (welcome / login / signup / currency / wallet) | ✓ | n/a | ✓ | ✓ |
+| Home (greeting + month summary + budgets + recent) | ✓ | ✓ (₹545.50, Monthly + Food budgets) | ✓ | ✓ |
+| Expenses (date-grouped infinite scroll + search + filters + FAB) | ✓ | ✓ (Yesterday/Saturday/Friday w/ totals) | ✓ | ✓ |
+| Ask (chat + suggestion chips) | ✓ | ✓ | ✓ | ✓ |
+| Insights (period toggle + bar + categories + merchants) | ✓ | ✓ (-99% delta, Food/Transport, Swiggy/Chai Point/Auto rickshaw) | ✓ | ✓ |
+| Settings (profile card + grouped nav) | ✓ | ✓ | ✓ | ✓ |
+| Profile (avatar + name/email + actions) | ✓ | ✓ | ✓ | ✓ |
+| Reminders (3 seeded items rendered) | ✓ | ✓ | ✓ | ✓ |
+| Expense detail (full edit form, group/wallet chips, date input, save, delete) | ✓ | ✓ | ✓ | ✓ |
+| Back navigation across all sub-screens | n/a | n/a | ✓ no flash | ✓ no flash |
 
-Known minor polish items deferred to v1.1: live wallet balance computation, expo-image-picker gallery support on photo screen, native date-picker on manual entry, custom date-range preset on expense filters.
+Not exercised on emulator (require real hardware): voice STT, photo OCR, mic / camera permissions, OTA fetch. Validated in Phase B (`PLAYSTORE.md`).
+
+Known minor polish items deferred to v1.1: live wallet balance computation, expo-image-picker gallery support on photo screen, native date-picker on manual entry, custom date-range preset on expense filters, swipe-to-delete on expense rows, audio playback in expense detail, AI conversation history persistence, SDK 54 retry.
 
 ## Standards followed
 
@@ -184,4 +213,5 @@ Known minor polish items deferred to v1.1: live wallet balance computation, expo
 - **Hi-fi mockups**: `~/productivity/hustle/voxpense/mockups/index.html` (28 phone frames, browser-viewable)
 - **Server tenant** (post-Phase 4): `~/Projects/server/src/apps/voxpense/v1/`
 - **Shared OTA infra**: [yashguptadeveloper/ota-server](https://github.com/yashguptadeveloper/ota-server)
-- **Existing MVP** (reference only, will be archived): `~/Apps/voxpense/`
+- **Sibling repo for reference (SDK 54)**: `~/Projects/liftfuel/`
+- **Older `~/Apps/voxpense/` clone**: outdated SDK 52, do not edit.
