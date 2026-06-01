@@ -1,8 +1,15 @@
-// Screen 11 + 13. AI Confirm — shared between voice + photo capture.
+// Screen 11 + 13. AI Confirm — pixel-match rebuild matching mockup 11 (voice)
+// and 13 (photo) flavors.
 //
-// Reads `payload` from URL params (JSON containing parsed expense + source),
-// renders editable fields pre-filled, allows category/wallet/date overrides
-// via PickerSheet, then POSTs to /expenses on save.
+// Layout:
+//   - Header: back arrow + "Confirm expense" + close X
+//   - Hero glass card: DETECTED AMOUNT label + huge ₹AMOUNT + category chip +
+//     confidence chip (when parse-meta supplies it)
+//   - Section rows: merchant edit, note edit, category picker, wallet picker,
+//     date row (Now), and (voice-only) "From your voice" transcript echo
+//   - Footer: Cancel (ghost) + Save expense (primary 2x flex)
+//
+// Save: POST /expenses → invalidate ['expenses'] → dismissAll + replace home.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -30,8 +37,7 @@ import {
 import { ApiError } from '../../src/lib/api';
 import { qk } from '../../src/query/client';
 import { useAuth } from '../../src/store/auth';
-import { radii } from '../../src/theme/tokens';
-import { formatRelativeDate } from '../../src/lib/format';
+import { formatCurrency, formatRelativeDate } from '../../src/lib/format';
 
 type CaptureSource = 'voice' | 'photo';
 
@@ -66,7 +72,6 @@ export default function ConfirmScreen() {
   const parsed = payload?.parsed ?? null;
   const source: CaptureSource = (payload?.source ?? (params.source as CaptureSource) ?? 'voice') as CaptureSource;
 
-  // Editable form state, pre-filled from parsed payload.
   const [amount, setAmount] = useState<string>(parsed?.amount ?? '');
   const [currency, setCurrency] = useState<string>(parsed?.currency ?? baseCurrency);
   const [merchant, setMerchant] = useState<string>(parsed?.merchant ?? '');
@@ -108,7 +113,7 @@ export default function ConfirmScreen() {
     [walletItems, walletId],
   );
 
-  // Auto-suggest category once we have data + an amount + no chosen category.
+  // Auto-suggest category on first arrival.
   useEffect(() => {
     let cancelled = false;
     async function suggest() {
@@ -125,7 +130,7 @@ export default function ConfirmScreen() {
         });
         if (!cancelled && res.categoryId) setCategoryId(res.categoryId);
       } catch {
-        // Soft-fail — user picks manually.
+        // Soft-fail.
       } finally {
         if (!cancelled) setAiBusy(false);
       }
@@ -134,8 +139,7 @@ export default function ConfirmScreen() {
     return () => {
       cancelled = true;
     };
-    // Intentionally only on first arrival of parsed/categories — re-running on every
-    // amount/merchant edit would spam the endpoint.
+    // Only re-run on first arrival of parsed/categories.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsed, categoriesQ.data?.length]);
 
@@ -150,13 +154,14 @@ export default function ConfirmScreen() {
     mutationFn: () => {
       if (!amount || Number(amount) <= 0) throw new Error('Add an amount.');
       if (!walletId) throw new Error('Pick a wallet.');
+      if (!categoryId) throw new Error('Pick a category.');
       return expensesApi.create({
         amount,
         currency,
         merchant: merchant || undefined,
         note: note || undefined,
         occurredAt,
-        categoryId: categoryId ?? undefined,
+        categoryId,
         walletId,
         source,
         parseMeta: parsed
@@ -191,23 +196,35 @@ export default function ConfirmScreen() {
       setFormError('Add an amount before saving.');
       return;
     }
+    if (!categoryId) {
+      setFormError('Pick a category.');
+      return;
+    }
     if (!walletId) {
-      setFormError('Pick a wallet before saving.');
+      setFormError('Pick a wallet.');
       return;
     }
     createMutation.mutate();
-  }, [amount, walletId, createMutation]);
+  }, [amount, walletId, categoryId, createMutation]);
+
+  // Helpers
+  const inkPrimary = isDark ? '#F8FAFC' : '#0F172A';
+  const inkSecondary = isDark ? '#94A3B8' : '#64748B';
+  const inkPlaceholder = isDark ? '#64748B' : '#94A3B8';
+  const rowBg = isDark ? '#1F2937' : '#F1F4F8';
+  const glassBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.65)';
+  const glassBorder = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.06)';
 
   if (!payload || !parsed) {
     return (
       <Screen>
         <CaptureHeader title="Confirm" />
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+        <View className="flex-1 items-center justify-center p-6" style={{ gap: 12 }}>
           <Ionicons name="alert-circle-outline" size={48} color={isDark ? '#FCA5A5' : '#EF4444'} />
-          <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#F8FAFC' : '#0F172A' }}>
+          <Text className="text-base font-bold" style={{ color: inkPrimary }}>
             No parsed expense found
           </Text>
-          <Text style={{ fontSize: 13, color: isDark ? '#94A3B8' : '#64748B', textAlign: 'center' }}>
+          <Text className="text-[13px] text-center" style={{ color: inkSecondary }}>
             The previous step did not pass an expense. Start over to try again.
           </Text>
           <Button onPress={() => router.replace('/(tabs)/home')}>Back to home</Button>
@@ -216,187 +233,260 @@ export default function ConfirmScreen() {
     );
   }
 
+  const formattedAmount = formatCurrency(Number(amount) || 0, currency);
+
   return (
     <Screen>
       <CaptureHeader title="Confirm expense" />
 
-      <View style={{ flex: 1, paddingHorizontal: 20 }}>
-        <Card padded style={{ marginTop: 4 }}>
-          <Text
+      <View className="flex-1 px-5">
+        {/* Hero glass card */}
+        <View
+          className="p-6 mt-1 overflow-hidden"
+          style={{
+            borderRadius: 28,
+            backgroundColor: glassBg,
+            borderWidth: 1,
+            borderColor: glassBorder,
+          }}
+        >
+          {/* Decorative brand blob (matches mockup -top-12 -right-12) */}
+          <View
+            pointerEvents="none"
             style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 1.4,
-              color: isDark ? '#94A3B8' : '#64748B',
+              position: 'absolute',
+              top: -48,
+              right: -48,
+              width: 160,
+              height: 160,
+              borderRadius: 80,
+              backgroundColor: 'rgba(59,130,246,0.30)',
             }}
+          />
+
+          <Text
+            className="text-[11px] font-bold tracking-widest"
+            style={{ color: inkSecondary }}
           >
             DETECTED AMOUNT
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 4 }}>
-            <Text style={{ fontSize: 16, fontWeight: '600', color: isDark ? '#F8FAFC' : '#0F172A' }}>
-              {currency === 'INR' ? '₹' : currency}
-            </Text>
+
+          <View className="flex-row items-baseline mt-1" style={{ gap: 4 }}>
             <TextInput
               value={amount}
               onChangeText={setAmount}
               keyboardType="decimal-pad"
+              placeholder={currency === 'INR' ? '₹0' : `${currency} 0`}
+              placeholderTextColor={inkPlaceholder}
               style={{
                 flex: 1,
-                fontSize: 40,
+                fontSize: 44,
                 fontWeight: '800',
-                color: isDark ? '#F8FAFC' : '#0F172A',
+                color: inkPrimary,
                 paddingVertical: 0,
               }}
             />
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
-            <Ionicons
-              name={source === 'voice' ? 'mic' : 'camera'}
-              size={14}
-              color={isDark ? '#94A3B8' : '#64748B'}
+          <Text className="text-[12px] mt-1" style={{ color: inkSecondary }}>
+            {formattedAmount}
+          </Text>
+
+          {parsed.category_hint && (
+            <View
+              className="self-start flex-row items-center mt-3 px-2 py-1"
+              style={{
+                gap: 6,
+                borderRadius: 999,
+                backgroundColor: 'rgba(16,185,129,0.18)',
+              }}
+            >
+              <Ionicons name="flash" size={12} color="#10B981" />
+              <Text className="text-[11px] font-bold" style={{ color: '#10B981' }}>
+                AI confident · {parsed.category_hint}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Section rows */}
+        <View className="mt-4" style={{ gap: 8 }}>
+          {/* Merchant */}
+          <View
+            className="flex-row items-center p-3"
+            style={{ gap: 10, borderRadius: 16, backgroundColor: rowBg }}
+          >
+            <Ionicons name="storefront-outline" size={18} color={inkSecondary} />
+            <TextInput
+              value={merchant}
+              onChangeText={setMerchant}
+              placeholder="Where was this?"
+              placeholderTextColor={inkPlaceholder}
+              style={{
+                flex: 1,
+                fontSize: 14,
+                fontWeight: '500',
+                color: inkPrimary,
+                paddingVertical: 0,
+              }}
             />
-            <Text style={{ fontSize: 12, color: isDark ? '#94A3B8' : '#64748B' }}>
-              From {source === 'voice' ? 'voice capture' : 'receipt photo'}
-            </Text>
           </View>
-        </Card>
 
-        <View style={{ gap: 10, marginTop: 14 }}>
-          <FieldRow
-            icon="storefront-outline"
-            isDark={isDark}
-            label="Merchant"
-            value={merchant}
-            onChangeText={setMerchant}
-            placeholder="Where was this?"
-          />
+          {/* Note */}
+          <View
+            className="flex-row items-center p-3"
+            style={{ gap: 10, borderRadius: 16, backgroundColor: rowBg }}
+          >
+            <Ionicons name="document-text-outline" size={18} color={inkSecondary} />
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder="Optional note"
+              placeholderTextColor={inkPlaceholder}
+              style={{
+                flex: 1,
+                fontSize: 14,
+                fontWeight: '500',
+                color: inkPrimary,
+                paddingVertical: 0,
+              }}
+            />
+          </View>
 
-          <FieldRow
-            icon="document-text-outline"
-            isDark={isDark}
-            label="Note"
-            value={note}
-            onChangeText={setNote}
-            placeholder="Optional note"
-          />
-
+          {/* Category */}
           <Pressable
             onPress={() => setShowCategory(true)}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              padding: 12,
-              borderRadius: radii.lg,
-              backgroundColor: isDark ? '#1F2937' : '#F1F4F8',
-              opacity: pressed ? 0.85 : 1,
-              borderWidth: !categoryId ? 1 : 0,
-              borderColor: 'rgba(239,68,68,0.45)',
-            })}
+            style={[
+              ROW_STATIC_STYLE,
+              {
+                backgroundColor: rowBg,
+                borderWidth: !categoryId ? 1 : 0,
+                borderColor: 'rgba(239,68,68,0.45)',
+              },
+            ]}
           >
-            <Ionicons name="pricetags-outline" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            <Ionicons name="pricetags-outline" size={18} color={inkSecondary} />
             <Text
               style={{
                 flex: 1,
                 fontSize: 14,
                 fontWeight: '600',
-                color: selectedCategory
-                  ? isDark ? '#F8FAFC' : '#0F172A'
-                  : isDark ? '#64748B' : '#94A3B8',
+                color: selectedCategory ? inkPrimary : inkPlaceholder,
               }}
             >
-              {selectedCategory?.label ?? (aiBusy ? 'AI is picking a category…' : 'Pick a category')}
+              {selectedCategory?.label ??
+                (aiBusy ? 'AI is picking a category…' : 'Pick a category')}
             </Text>
             {aiBusy ? (
               <ActivityIndicator size="small" color={isDark ? '#60A5FA' : '#3B82F6'} />
             ) : (
-              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              <Ionicons name="chevron-forward" size={18} color={inkSecondary} />
             )}
           </Pressable>
 
+          {/* Wallet */}
           <Pressable
             onPress={() => setShowWallet(true)}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              padding: 12,
-              borderRadius: radii.lg,
-              backgroundColor: isDark ? '#1F2937' : '#F1F4F8',
-              opacity: pressed ? 0.85 : 1,
-              borderWidth: !walletId ? 1 : 0,
-              borderColor: 'rgba(239,68,68,0.45)',
-            })}
+            style={[
+              ROW_STATIC_STYLE,
+              {
+                backgroundColor: rowBg,
+                borderWidth: !walletId ? 1 : 0,
+                borderColor: 'rgba(239,68,68,0.45)',
+              },
+            ]}
           >
-            <Ionicons name="card-outline" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            <Ionicons name="card-outline" size={18} color={inkSecondary} />
             <Text
               style={{
                 flex: 1,
                 fontSize: 14,
                 fontWeight: '600',
-                color: selectedWallet
-                  ? isDark ? '#F8FAFC' : '#0F172A'
-                  : isDark ? '#64748B' : '#94A3B8',
+                color: selectedWallet ? inkPrimary : inkPlaceholder,
               }}
             >
               {selectedWallet?.label ?? 'Pick a wallet'}
             </Text>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={18} color={inkSecondary} />
           </Pressable>
 
+          {/* Date */}
           <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              padding: 12,
-              borderRadius: radii.lg,
-              backgroundColor: isDark ? '#1F2937' : '#F1F4F8',
-            }}
+            className="flex-row items-center p-3"
+            style={{ gap: 10, borderRadius: 16, backgroundColor: rowBg }}
           >
-            <Ionicons name="calendar-outline" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
-            <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: isDark ? '#F8FAFC' : '#0F172A' }}>
+            <Ionicons name="calendar-outline" size={18} color={inkSecondary} />
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 14,
+                fontWeight: '600',
+                color: inkPrimary,
+              }}
+            >
               {formatRelativeDate(occurredAt)}
             </Text>
-            <Pressable
-              onPress={() => setOccurredAt(new Date().toISOString())}
-              hitSlop={6}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#3B82F6' }}>Now</Text>
+            <Pressable onPress={() => setOccurredAt(new Date().toISOString())} hitSlop={6}>
+              <Text className="text-[12px] font-semibold text-[#3B82F6]">Now</Text>
             </Pressable>
           </View>
+
+          {/* Voice transcript echo */}
+          {source === 'voice' && payload.transcript && (
+            <View
+              className="p-3"
+              style={{
+                borderRadius: 16,
+                backgroundColor: glassBg,
+                borderWidth: 1,
+                borderColor: glassBorder,
+              }}
+            >
+              <View className="flex-row items-center mb-1" style={{ gap: 6 }}>
+                <Ionicons name="volume-medium-outline" size={14} color="#3B82F6" />
+                <Text
+                  className="text-[11px] font-bold tracking-widest"
+                  style={{ color: inkSecondary }}
+                >
+                  FROM YOUR VOICE
+                </Text>
+              </View>
+              <Text
+                className="text-[12px] italic"
+                style={{ color: inkPrimary }}
+              >
+                "{payload.transcript}"
+              </Text>
+            </View>
+          )}
 
           {currency !== baseCurrency && (
             <Pressable
               onPress={() => setCurrency(baseCurrency)}
-              style={({ pressed }) => ({
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                alignSelf: 'flex-start',
-                borderRadius: 999,
-                backgroundColor: 'rgba(59,130,246,0.12)',
-                opacity: pressed ? 0.85 : 1,
-              })}
+              style={[
+                CURRENCY_CHIP_STYLE,
+                { backgroundColor: 'rgba(59,130,246,0.12)' },
+              ]}
             >
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#3B82F6' }}>
+              <Text className="text-[12px] font-semibold text-[#3B82F6]">
                 Currency: {currency} → tap to use {baseCurrency}
               </Text>
             </Pressable>
           )}
         </View>
 
-        <View style={{ flex: 1 }} />
+        <View className="flex-1" />
 
         {formError && (
           <Card padded={false} style={{ marginBottom: 8 }}>
-            <Text style={{ padding: 12, color: '#EF4444', fontSize: 13, fontWeight: '600' }}>
+            <Text className="p-3 text-[#EF4444] text-[13px] font-semibold">
               {formError}
             </Text>
           </Card>
         )}
 
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+        {/* Footer */}
+        <View className="flex-row mb-4" style={{ gap: 12 }}>
           <Button variant="ghost" onPress={() => router.back()} style={{ flex: 1 }}>
             Cancel
           </Button>
@@ -433,41 +523,18 @@ export default function ConfirmScreen() {
   );
 }
 
-interface FieldRowProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  isDark: boolean;
-  label: string;
-  value: string;
-  onChangeText: (s: string) => void;
-  placeholder?: string;
-}
+// STATIC array-form styles — layout-bearing Pressables.
+const ROW_STATIC_STYLE = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 10,
+  padding: 12,
+  borderRadius: 16,
+};
 
-function FieldRow({ icon, isDark, value, onChangeText, placeholder }: FieldRowProps) {
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        padding: 12,
-        borderRadius: radii.lg,
-        backgroundColor: isDark ? '#1F2937' : '#F1F4F8',
-      }}
-    >
-      <Ionicons name={icon} size={18} color={isDark ? '#94A3B8' : '#64748B'} />
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-        style={{
-          flex: 1,
-          fontSize: 14,
-          fontWeight: '500',
-          color: isDark ? '#F8FAFC' : '#0F172A',
-          paddingVertical: 0,
-        }}
-      />
-    </View>
-  );
-}
+const CURRENCY_CHIP_STYLE = {
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  alignSelf: 'flex-start' as const,
+  borderRadius: 999,
+};
