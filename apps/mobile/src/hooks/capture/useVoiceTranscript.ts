@@ -14,9 +14,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ExpoSpeechRecognitionModule,
+  SpeechRecognitionModule as ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
-} from 'expo-speech-recognition';
+} from '../../lib/speechRecognition';
 
 export type VoiceStatus =
   | 'idle'
