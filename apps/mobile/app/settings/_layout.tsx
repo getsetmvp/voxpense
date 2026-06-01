@@ -2,10 +2,18 @@
 // reminders, preferences, privacy, about.
 
 import { Stack } from 'expo-router';
+import { useTheme } from '../../src/theme/ThemeProvider';
 
 export default function SettingsLayout() {
+  const { tokens } = useTheme();
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: tokens.bg },
+      }}
+    >
       <Stack.Screen name="profile" />
       <Stack.Screen name="categories" />
       <Stack.Screen name="wallets" />
