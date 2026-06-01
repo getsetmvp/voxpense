@@ -1,6 +1,8 @@
-// 07. ExpenseListScreen
-// FlatList with day-grouped headers, infinite-scroll cursor pagination,
-// debounced search, glass filter sheet, active-filter pill row.
+// 07. ExpenseListScreen — pixel-match mockup screen 07.
+// Header: bold "Expenses" + search icon + filter icon (w/ active dot).
+// Active filter pills row.
+// Day-grouped list (section-h on left, day total on right; surf-l0 rows).
+// Floating brand FAB (right-bottom, anchored above tab bar).
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -18,9 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen, Input } from '../../src/components/glass';
 import {
   EmptyExpenses,
-  ExpenseGroupHeader,
   ExpenseRow,
-  Fab,
   FilterPills,
   FilterSheet,
   emptyFilters,
@@ -38,6 +38,7 @@ import {
 } from '../../src/queries/insights';
 import { useAuth } from '../../src/store/auth';
 import { rangeForPreset, DATE_PRESETS } from '../../src/hooks/useDateRange';
+import { formatCurrency } from '../../src/lib/format';
 
 export default function ExpensesScreen() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function ExpensesScreen() {
   const user = useAuth((s) => s.user);
   const currency = user?.baseCurrency ?? 'INR';
 
-  // ── filter + search state ───────────────────────────────────────────────
+  // ── filter + search state ────────────────────────────────────────────────
   const [filters, setFilters] = useState<FilterValues>(emptyFilters);
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -58,7 +59,7 @@ export default function ExpensesScreen() {
     return () => clearTimeout(id);
   }, [searchInput]);
 
-  // ── derive query params from filters ────────────────────────────────────
+  // ── derive query params from filters ─────────────────────────────────────
   const range = useMemo(() => rangeForPreset(filters.preset), [filters.preset]);
   const listParams = useMemo(
     () => ({
@@ -79,7 +80,7 @@ export default function ExpensesScreen() {
   const groups = useMemo(() => groupByDay(expenses), [expenses]);
   const rows: ListRow[] = useMemo(() => toListRows(groups), [groups]);
 
-  // ── ref data for row decoration ─────────────────────────────────────────
+  // ── ref data ────────────────────────────────────────────────────────────
   const categoriesQ = useCategories();
   const walletsQ = useWallets();
   const groupsQ = useGroups();
@@ -94,7 +95,7 @@ export default function ExpensesScreen() {
     return m;
   }, [walletsQ.data]);
 
-  // ── active filter pills ─────────────────────────────────────────────────
+  // ── pills ───────────────────────────────────────────────────────────────
   const pills: FilterPill[] = useMemo(() => {
     const out: FilterPill[] = [];
     if (filters.preset !== 'all') {
@@ -137,6 +138,7 @@ export default function ExpensesScreen() {
   const hasAnyFilter = pills.length > 0 || debouncedQ.length > 0;
   const ink = isDark ? '#F8FAFC' : '#0F172A';
   const meta = isDark ? '#94A3B8' : '#64748B';
+  const brand = isDark ? '#60A5FA' : '#3B82F6';
 
   return (
     <Screen>
@@ -148,10 +150,19 @@ export default function ExpensesScreen() {
           justifyContent: 'space-between',
           paddingHorizontal: 20,
           paddingTop: 12,
-          paddingBottom: 8,
+          paddingBottom: 12,
         }}
       >
-        <Text style={{ fontSize: 22, fontWeight: '700', color: ink }}>Expenses</Text>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: '700',
+            color: ink,
+            letterSpacing: -0.3,
+          }}
+        >
+          Expenses
+        </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Pressable
             onPress={() => {
@@ -176,14 +187,14 @@ export default function ExpensesScreen() {
                   : 'rgba(59,130,246,0.14)'
                 : isDark
                   ? 'rgba(31,41,55,0.7)'
-                  : 'rgba(255,255,255,0.7)',
+                  : 'rgba(241,244,248,1)',
               opacity: pressed ? 0.75 : 1,
             })}
           >
             <Ionicons
               name="search"
               size={18}
-              color={searchOpen ? (isDark ? '#60A5FA' : '#3B82F6') : ink}
+              color={searchOpen ? brand : ink}
             />
           </Pressable>
           <Pressable
@@ -195,12 +206,12 @@ export default function ExpensesScreen() {
               borderRadius: 20,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(255,255,255,0.7)',
+              backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)',
               opacity: pressed ? 0.75 : 1,
             })}
           >
             <Ionicons name="options" size={18} color={ink} />
-            {pills.length > 0 && (
+            {pills.length > 0 ? (
               <View
                 style={{
                   position: 'absolute',
@@ -209,17 +220,17 @@ export default function ExpensesScreen() {
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: brand,
                 }}
               />
-            )}
+            ) : null}
           </Pressable>
         </View>
       </View>
 
       {/* Search input */}
-      {searchOpen && (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+      {searchOpen ? (
+        <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
           <Input
             placeholder="Search merchant or note"
             value={searchInput}
@@ -237,7 +248,7 @@ export default function ExpensesScreen() {
             }
           />
         </View>
-      )}
+      ) : null}
 
       {/* Active filter pills */}
       <FilterPills pills={pills} />
@@ -282,15 +293,40 @@ export default function ExpensesScreen() {
           keyExtractor={keyForRow}
           renderItem={({ item }) =>
             item.kind === 'header' ? (
-              <View style={{ paddingHorizontal: 16 }}>
-                <ExpenseGroupHeader
-                  label={item.group.label}
-                  total={item.group.total}
-                  currency={currency}
-                />
+              <View
+                style={{
+                  paddingHorizontal: 20,
+                  paddingTop: 14,
+                  paddingBottom: 8,
+                  flexDirection: 'row',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                    color: meta,
+                  }}
+                >
+                  {item.group.label}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: ink,
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {formatCurrency(item.group.total, currency)}
+                </Text>
               </View>
             ) : (
-              <View style={{ paddingHorizontal: 16, paddingVertical: 3 }}>
+              <View style={{ paddingHorizontal: 20, paddingVertical: 3 }}>
                 <ExpenseRow
                   expense={item.expense}
                   currency={currency}
@@ -305,12 +341,12 @@ export default function ExpensesScreen() {
               </View>
             )
           }
-          contentContainerStyle={{ paddingBottom: 120, paddingTop: 4 }}
+          contentContainerStyle={{ paddingBottom: 120, paddingTop: 2 }}
           refreshControl={
             <RefreshControl
               refreshing={list.isRefetching && !list.isFetchingNextPage}
               onRefresh={() => list.refetch()}
-              tintColor={isDark ? '#60A5FA' : '#3B82F6'}
+              tintColor={brand}
             />
           }
           onEndReached={() => {
@@ -322,7 +358,7 @@ export default function ExpensesScreen() {
           ListFooterComponent={
             list.isFetchingNextPage ? (
               <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-                <ActivityIndicator color={isDark ? '#60A5FA' : '#3B82F6'} />
+                <ActivityIndicator color={brand} />
               </View>
             ) : !list.hasNextPage && rows.length > 0 ? (
               <View style={{ paddingVertical: 32, alignItems: 'center' }}>
@@ -336,7 +372,7 @@ export default function ExpensesScreen() {
         />
       )}
 
-      {/* FAB → voice capture */}
+      {/* FAB → voice capture (anchored above glass tab bar) */}
       <View
         pointerEvents="box-none"
         style={{
@@ -353,7 +389,7 @@ export default function ExpensesScreen() {
           pointerEvents="box-none"
           style={{
             position: 'absolute',
-            right: 24,
+            right: 20,
             bottom: 96,
             width: 56,
             height: 56,
@@ -363,11 +399,11 @@ export default function ExpensesScreen() {
             onPress={() => router.push('/(capture)/voice')}
             accessibilityRole="button"
             accessibilityLabel="Add expense"
-            style={{
+            style={({ pressed }) => ({
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
+              backgroundColor: brand,
               alignItems: 'center',
               justifyContent: 'center',
               shadowColor: '#3B82F6',
@@ -375,7 +411,8 @@ export default function ExpensesScreen() {
               shadowRadius: 22,
               shadowOffset: { width: 0, height: 12 },
               elevation: 12,
-            }}
+              opacity: pressed ? 0.9 : 1,
+            })}
           >
             <Ionicons name="add" size={28} color="#FFFFFF" />
           </Pressable>
@@ -403,7 +440,7 @@ function keyForRow(row: ListRow): string {
 function SkeletonList({ isDark }: { isDark: boolean }) {
   const bar = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)';
   return (
-    <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 8 }}>
+    <View style={{ paddingHorizontal: 20, paddingTop: 12, gap: 8 }}>
       <View
         style={{
           height: 14,
