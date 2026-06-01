@@ -98,6 +98,10 @@ module.exports = ({ config }) => {
       apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://server.getsetmvp.com',
       tenant: 'voxpense',
       sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
+      eas: {
+        projectId: 'b20d6563-81c8-4401-a4df-2ff549a01ede',
+      },
     },
+    owner: 'yashguptadeveloper',
   };
 };
