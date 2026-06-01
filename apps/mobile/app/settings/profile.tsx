@@ -193,26 +193,49 @@ export default function ProfileScreen() {
           </View>
 
           <View style={{ padding: 20, gap: 16 }}>
-            {/* Avatar block */}
+            {/* Avatar block — mockup 28: 96px circle, camera badge bottom-right. */}
             <View style={{ alignItems: 'center', marginTop: 4 }}>
-              <View
-                style={{
-                  width: 96,
-                  height: 96,
-                  borderRadius: 48,
-                  backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  shadowColor: '#3B82F6',
-                  shadowOpacity: 0.3,
-                  shadowRadius: 18,
-                  shadowOffset: { width: 0, height: 10 },
-                  elevation: 8,
-                }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '700' }}>
-                  {initialsFrom(user)}
-                </Text>
+              <View style={{ position: 'relative' }}>
+                <View
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: 48,
+                    backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#3B82F6',
+                    shadowOpacity: 0.3,
+                    shadowRadius: 18,
+                    shadowOffset: { width: 0, height: 10 },
+                    elevation: 8,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '700' }}>
+                    {initialsFrom(user)}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                    borderWidth: 2,
+                    borderColor: isDark ? '#0F172A' : '#FFFFFF',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Feather
+                    name="camera"
+                    size={14}
+                    color={isDark ? '#CBD5E1' : '#334155'}
+                  />
+                </View>
               </View>
               {user && (
                 <Text
@@ -259,6 +282,36 @@ export default function ProfileScreen() {
                       size={16}
                       color={isDark ? '#94A3B8' : '#64748B'}
                     />
+                  }
+                  rightIcon={
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 999,
+                        backgroundColor: isDark
+                          ? 'rgba(16,185,129,0.18)'
+                          : 'rgba(16,185,129,0.12)',
+                      }}
+                    >
+                      <Feather
+                        name="check"
+                        size={12}
+                        color={isDark ? '#34D399' : '#059669'}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: '600',
+                          color: isDark ? '#34D399' : '#059669',
+                        }}
+                      >
+                        verified
+                      </Text>
+                    </View>
                   }
                 />
                 {dirtyName && (
