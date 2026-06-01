@@ -1,6 +1,6 @@
 // Icon picker — grid of Ionicons names. Limited curated set.
 
-import { View, Pressable, useColorScheme } from 'react-native';
+import { View, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface IconPickerProps {
@@ -48,26 +48,24 @@ export function IconPicker({ value, onChange, icons = ICONS }: IconPickerProps) 
   const scheme = useColorScheme() ?? 'light';
   const isDark = scheme === 'dark';
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+    <View style={styles.grid}>
       {icons.map((name) => {
         const selected = name === value;
         return (
           <Pressable
             key={name}
             onPress={() => onChange(name as string)}
-            style={({ pressed }) => ({
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: selected
-                ? isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.12)'
-                : isDark ? 'rgba(31,41,55,0.6)' : 'rgba(241,244,248,0.9)',
-              borderWidth: selected ? 1.5 : 0,
-              borderColor: isDark ? '#60A5FA' : '#3B82F6',
-              opacity: pressed ? 0.7 : 1,
-            })}
+            style={({ pressed }) => [
+              styles.cell,
+              {
+                backgroundColor: selected
+                  ? isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.12)'
+                  : isDark ? 'rgba(31,41,55,0.6)' : 'rgba(241,244,248,0.9)',
+                borderWidth: selected ? 1.5 : 0,
+                borderColor: isDark ? '#60A5FA' : '#3B82F6',
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
           >
             <Ionicons
               name={name as keyof typeof Ionicons.glyphMap}
@@ -80,3 +78,18 @@ export function IconPicker({ value, onChange, icons = ICONS }: IconPickerProps) 
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  cell: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

@@ -127,9 +127,8 @@ export function Button({
       <Pressable
         accessibilityRole="button"
         disabled={isDisabled}
-        style={({ pressed }) => [
+        style={[
           { ...baseStyle, backgroundColor: 'transparent', overflow: 'hidden' },
-          { transform: [{ scale: pressed ? 0.97 : 1 }] },
           style,
         ]}
         {...rest}
@@ -148,11 +147,7 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       disabled={isDisabled}
-      style={({ pressed }) => [
-        baseStyle,
-        { transform: [{ scale: pressed ? 0.97 : 1 }] },
-        style,
-      ]}
+      style={[baseStyle, style]}
       {...rest}
     >
       <View pointerEvents="none" style={fillStyle} />
