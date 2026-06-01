@@ -2,127 +2,137 @@
 
 Context for Claude when working in this repo.
 
+## TL;DR for a fresh session
+
+1. Read [`STATE.md`](./STATE.md) FIRST — current phase, the big bug history, how to boot the emulator, how to log in to the seeded test account.
+2. Then this file for conventions.
+3. Then `~/productivity/hustle/voxpense/design.md` for the locked spec.
+4. Then `~/productivity/hustle/voxpense/mockups/index.html` for the pixel target.
+
 ## What this repo is
 
-Voice-first personal expense tracker. Expo mobile app + shared backend tenant. Phase 3 boilerplate ships in this commit; Phase 4 (server tenant) + Phase 5 (parallel feature agents) follow.
+Voice-first personal expense tracker. Expo SDK 53 mobile app + voxpense tenant inside the shared NestJS backend at `~/Projects/server`. Phase 6.6 complete — every screen rebuilt against the locked hi-fi mockups, dev client running on Android emulator, backend live, seeded test data persists.
 
 ## Required reading
 
+- **Current state**: [`STATE.md`](./STATE.md) (this repo)
 - **Repo type**: `frontend-mobile`
 - **Type spec**: `~/productivity/standards/frontend-mobile.md`
 - **OTA system**: `~/productivity/standards/cloudflare-ota.md`
-- **Pipeline**: `~/productivity/standards/app-development-pipeline.md` (10 phases, currently Phase 3)
+- **Pipeline**: `~/productivity/standards/app-development-pipeline.md` (10 phases, currently Phase 6.6, next is 7)
 - **Env files**: `~/productivity/standards/env-files.md`
 - **Design (FROZEN)**: `~/productivity/hustle/voxpense/design.md`
-- **Hi-fi mockups**: `~/productivity/hustle/voxpense/mockups/index.html` (browser-viewable)
+- **Hi-fi mockups (PIXEL TARGET)**: `~/productivity/hustle/voxpense/mockups/index.html` (browser-viewable, 28 phone frames)
 
-When proposing changes, follow design.md. **The design is FROZEN** — changes require ADR + agent re-scoping.
+When proposing changes, follow design.md. **The design is FROZEN** — changes require ADR.
 
 ## Read order on session start
 
-1. `README.md`
-2. `CONVENTIONS.md`
-3. `~/productivity/hustle/voxpense/design.md` — full spec
-4. `~/productivity/hustle/voxpense/design.md` § 19 — Phase 5 partition (which agent owns what)
-5. `packages/shared-types/src/index.ts` — DTOs locked
-6. `apps/mobile/src/lib/api.ts` — fetch wrapper pattern
+1. `STATE.md` (current state + bugs + pickup commands)
+2. `README.md` (project intro + build status table)
+3. `CONVENTIONS.md` (commit / branch rules)
+4. `~/productivity/hustle/voxpense/design.md` (full spec)
+5. `~/productivity/hustle/voxpense/mockups/index.html` (pixel target — open in browser)
+6. `packages/shared-types/src/index.ts` (DTOs locked, mirror of server)
+7. `apps/mobile/src/lib/api.ts` + `apps/mobile/src/lib/endpoints.ts` (fetch wrapper + typed namespaces)
+8. `apps/mobile/src/components/glass/index.ts` (foundation primitives)
 
 ## Project layout
 
 ```
 apps/mobile/
-├── app/                          Expo Router pages (Agent A scaffolds, B-E add features)
+├── app/                          Expo Router pages (file-based)
+│   ├── _layout.tsx               providers + AuthGate
+│   ├── index.tsx                 splash redirect
+│   ├── (onboarding)/             welcome + login + signup
+│   ├── (tabs)/                   home + expenses + insights + settings
+│   ├── (capture)/                voice + photo + manual + confirm (modal stack)
+│   ├── expense/[id].tsx          expense detail/edit
+│   └── settings/                 profile, preferences, wallets, categories, groups, budgets, recurring, reminders, privacy, about
 ├── src/
-│   ├── lib/
-│   │   ├── api.ts                fetch wrapper (DO NOT bypass this)
-│   │   ├── auth.ts               signup/login/logout/token storage
-│   │   └── theme.ts              (Agent A creates)
-│   ├── components/               (Agent A scaffolds, others add)
-│   ├── store/                    Zustand stores (Agent A scaffolds shared, B-E add per-feature)
-│   └── styles/global.css
-├── hooks/
-│   └── useOTAUpdates.ts          OTA check on cold start
+│   ├── components/glass/         FOUNDATION — never regress
+│   ├── components/{auth,home,expense,capture,insights,settings}/
+│   ├── lib/api.ts                fetch wrapper + auto-refresh (DO NOT bypass)
+│   ├── lib/endpoints.ts          typed API namespaces
+│   ├── lib/format.ts             currency + date helpers
+│   ├── lib/insights.ts           pure aggregation (testable, no React)
+│   ├── store/auth.ts             Zustand auth state
+│   ├── queries/{expenses,insights}.ts   React Query hooks
+│   ├── query/client.ts           QueryClient + qk registry
+│   ├── theme/tokens.ts           spacing / radii / motion / shadows
+│   └── styles/global.css         NativeWind entry
+├── hooks/useOTAUpdates.ts
 ├── scripts/                      OTA build pipeline
-├── certs/
-│   └── certificate.pem           PUBLIC cert; safe to commit
-├── app.config.js                 dynamic Expo config
+├── certs/certificate.pem         PUBLIC cert; safe to commit
+├── app.config.js                 dynamic Expo config (APP_ENV driven)
 ├── eas.json                      3 EAS profiles
-└── tailwind.config.ts            palette tokens per design.md
+└── tailwind.config.ts            palette per design.md (same palette mockups use)
 
-packages/shared-types/
-└── src/index.ts                  DTOs (mobile ↔ server contract)
+packages/shared-types/src/index.ts   DTOs shared mobile ↔ server
+.github/workflows/ota-publish.yaml   push to main → preview / tag v* → production
 ```
-
-## Phase 5 agent partition (see design.md § 19)
-
-| Agent | Scope | Branch |
-|---|---|---|
-| A | Shared contracts (api, auth, theme, navigation, types) | `feat/shared` |
-| B | Onboarding + Auth + Profile (screens 01-05, 28) | `feat/onboarding-auth` |
-| C | Home + Expenses list + detail + filter (06, 07, 08, 09) | `feat/expenses` |
-| D | Capture flows: Voice + Photo + Manual (10-14) | `feat/capture` |
-| E | Insights + Budgets + Recurring + Reminders + Settings + Wallets + Cats + Groups (15-27) | `feat/insights-settings` |
-
-**Agent A must complete + merge before B-E start.**
 
 ## Conventions (must follow)
 
-- TypeScript strict (`noUncheckedIndexedAccess: true`)
-- Functional components only (no class)
-- Hooks for state (useState, useReducer) + Zustand for cross-component
-- Server state via React Query (in agent C+E scopes) — NOT in Zustand
-- Expo Router for navigation (NOT react-navigation directly)
-- NativeWind v4 for styling (NOT inline styles, NOT StyleSheet.create except for animated values)
-- `expo-secure-store` for tokens (NEVER AsyncStorage)
-- All AI calls go through server (`apps/mobile/src/lib/api.ts` → server tenant → ai.askchimps.ai). NEVER call ai.askchimps.ai directly.
-- All API calls use `src/lib/api.ts` (auto JWT + refresh). NEVER raw fetch.
-- File-based routing only (Expo Router) — pages in `app/`
-- Tailwind class order: official prettier-plugin-tailwindcss
-- Branch model: `feat/<scope>` per agent (Phase 5) or `<type>/<slug>` general
-
-## Auto-behaviors
-
-- On new feature: identify which agent's scope it belongs to (design.md § 19); branch per agent
-- On API call: use `api()` from `src/lib/api.ts`
-- On auth-gated screen: check `isAuthed()` from `src/lib/auth.ts`
-- On new env var: update `apps/mobile/.env.example` + root `.env.example`
+- **TypeScript strict** (`noUncheckedIndexedAccess: true`)
+- **Functional components only** — no classes except `ErrorBoundary`
+- **Server state via React Query** — never `useEffect` fetches, never Zustand for server state
+- **Auth state via Zustand** (`src/store/auth.ts`) — secure tokens in `expo-secure-store` (NEVER AsyncStorage)
+- **Expo Router for navigation** — file-based, never `@react-navigation/native` directly
+- **NativeWind v4** for styling — className strings, palette from `tailwind.config.ts`
+- **Foundation components** — `Screen` / `Card` / `Button` / `Input` / `Sheet` / `LoadingView` / `EmptyView` / `ErrorView` from `src/components/glass`. Never reinvent.
+- **AI calls via server** — never call `ai.askchimps.ai` directly. Use `ai.*` from `src/lib/endpoints.ts`.
+- **API calls via `src/lib/endpoints.ts`** — never raw fetch
+- **Pressable styles** — STATIC array-form only for layout-bearing Pressables (see "Critical no-go's" below)
+- **Branch model** — direct commit to `main` until v1 ships (see `~/.claude/projects/-Users-yashgupta/memory/feedback_voxpense_direct_main.md`)
+- **Conventional Commits**: `feat:` / `fix:` / `docs:` / `chore:` / `refactor:` / `test:` / `perf:` / `build:` / `ci:`
 
 ## Critical no-go's
 
-- ❌ Calling `ai.askchimps.ai` directly from the app — go through server tenant
+- ❌ **`style={({ pressed }) => ({ flexDirection: 'row', ...})}` on Pressable** — Android Fabric drops layout props from function-form object returns. Use `style={[styles.row, { opacity: pressed ? 0.85 : 1 }]}` array-form. See STATE.md "the big bug".
+- ❌ Direct calls to `ai.askchimps.ai` from the app
 - ❌ Static bearer tokens in source — never
-- ❌ AsyncStorage for tokens — use `expo-secure-store`
+- ❌ AsyncStorage for tokens — always `expo-secure-store`
 - ❌ Hardcoded API URLs — use `Constants.expoConfig.extra.apiUrl`
-- ❌ Bypassing `api.ts` w/ raw fetch — auto-refresh + auth headers belong in one place
+- ❌ Bypassing `api.ts` w/ raw fetch
 - ❌ Editing `app.config.js` `updates.url` — locked to ota-server pattern
-- ❌ Adding to `eas.json` profiles arbitrary channels — only `development` / `preview` / `production`
-- ❌ Cross-agent file edits in Phase 5 — respect partition (see design.md § 19)
-- ❌ Skipping screen render tests
-- ❌ Skipping emulator screenshot in PR
+- ❌ Adding new EAS profiles outside `development` / `preview` / `production`
+- ❌ Skipping screen render tests when adding a new screen
 - ❌ Storing user-input PII in client-side logs
+- ❌ `expenses` API `limit > 200` — server rejects with 400
+
+## Auto-behaviors
+
+- On `.ts/.tsx` edit: ensure NativeWind className used (not inline styles for layout)
+- On new screen: must wrap in `<Screen>` from glass; mockup must exist or be approved
+- On new API call: wrap in a `src/lib/endpoints.ts` namespace if not present
+- On new env var: update `apps/mobile/.env.example`
 
 ## Pitfalls (learned the hard way)
 
-- **NativeWind v4 + Reanimated v3**: ensure `babel-plugin-react-native-reanimated` is LAST in plugin order (already correct in `babel.config.js`)
-- **Expo dev client APK install**: must rebuild + reinstall when adding native deps (e.g., new Expo SDK plugin); JS-only changes hot-reload via Metro
-- **OTA only ships JS**: Expo SDK upgrade OR `app.config.js` native config changes (icon, splash, permissions) REQUIRE a fresh EAS build
-- **runtimeVersion**: locked to `"1.0.0"` in `app.config.js`. Bump only on native rebuild — bumping invalidates older OTA bundles, forcing fresh APK install
-- **expo-speech-recognition**: requires both `microphonePermission` AND `speechRecognitionPermission` in `app.config.js` plugin config
-- **OTA cert path**: must be relative `./certs/certificate.pem` in `app.config.js`, not absolute
+- **NativeWind v4 + Reanimated v3**: ensure `babel-plugin-react-native-reanimated` is LAST in plugin order (already correct in `babel.config.js`).
+- **react-native-worklets**: transitively required by `react-native-css-interop` babel transform. Pinned to `^0.5.1` — DO NOT upgrade past 0.5.x without bumping RN to 0.83+.
+- **Expo dev client APK rebuild required** when adding native deps or changing `app.config.js` plugin list (icon/splash/permissions). JS-only changes hot-reload via Metro.
+- **OTA only ships JS**: SDK upgrades + native config changes require fresh EAS build + new `runtimeVersion`.
+- **runtimeVersion locked to "1.0.0"** in `app.config.js`. Bumping invalidates older OTA bundles.
+- **Code signing in dev**: the production-signed dev APK rejects unsigned Metro manifests. We strip `CODE_SIGNING_*` meta from `AndroidManifest.xml` post-prebuild — see Phase 6 fix commit. If you regenerate `android/`, you may need to re-strip.
+- **Two emulators at once**: AVD lock prevents multi-instance. Clone the AVD dir (`cp -R ~/.android/avd/<avd>.avd ~/.android/avd/<clone>.avd`) and boot the second with `-read-only`.
+- **Metro port collisions**: user often has a parallel `expo start` on 8082. Use 8081 for VoxPense.
 
 ## Where related stuff lives
 
 - Planning + ADRs: `~/productivity/hustle/voxpense/`
 - Design (FROZEN): `~/productivity/hustle/voxpense/design.md`
 - Hi-fi mockups: `~/productivity/hustle/voxpense/mockups/index.html`
-- Server tenant (Phase 4): `~/Projects/server/src/apps/voxpense/v1/`
-- OTA server: https://github.com/yashguptadeveloper/ota-server
+- Server tenant: `~/Projects/server/src/apps/voxpense/v1/`
 - Shared backend repo: https://github.com/yashguptadeveloper/server
+- OTA system: https://github.com/yashguptadeveloper/ota-server
+- Cross-session memory: `~/.claude/projects/-Users-yashgupta/memory/`
 
 ## Operating principles
 
 - Design is canonical — code matches design, not the other way
-- Partition discipline — Phase 5 agents own non-overlapping scopes
 - Pipeline phases gate progression — no skipping phases
-- Emulator before user — every feature validated on Android emulator before APK ships
-- User before production — user review approval required before prod deploy
+- Emulator-validated before APK ships
+- User-review-gate before production
+- Direct commit to main until v1 — no PR churn for solo dev
