@@ -24,8 +24,11 @@ Repo-local rules. Cross-repo standards live in `~/productivity/standards/`.
 
 ## Branch model
 
+**Active policy (2026-05-31 → v1 ship): direct commits to `main`.** Solo build phase, no PR churn. See `~/.claude/projects/-Users-yashgupta/memory/feedback_voxpense_direct_main.md` for the rationale.
+
+After v1 ships, revert to:
 - `main` is protected
-- Branch: `feat/<scope>` per Phase 5 partition OR `<type>/<slug>` for general work
+- Branch: `<type>/<slug>` (`feat/voice-waveform`, `fix/list-padding`, `chore/deps`)
 - Conventional Branches types: `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`, `perf/`, `build/`, `ci/`
 - PR-only merges; squash to main
 - Each PR includes emulator screenshot (per pipeline D7)
