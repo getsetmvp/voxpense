@@ -46,6 +46,15 @@ jobs:
           APP_NAME: ${{ secrets.APP_NAME }}
           OTA_SERVER_URL: ${{ secrets.OTA_SERVER_URL }}
 
+      - name: Read runtimeVersion from app.config.js
+        id: runtime
+        run: |
+          cd apps/mobile
+          RUNTIME=$(node -p "require('./app.config.js')({config:{}}).runtimeVersion")
+          echo "value=$RUNTIME" >> $GITHUB_OUTPUT
+        env:
+          APP_ENV: ${{ steps.envmap.outputs.env }}
+
       - name: Upload bundles to R2
         run: |
           cd apps/mobile
@@ -62,6 +71,7 @@ jobs:
             -f app=${{ secrets.APP_NAME }} \
             -f env=${{ steps.envmap.outputs.env }} \
             -f version=${{ steps.next.outputs.version }} \
+            -f runtime=${{ steps.runtime.outputs.value }} \
             -f promote=true
         env:
           GH_TOKEN: ${{ secrets.OTA_REPO_TOKEN }}
