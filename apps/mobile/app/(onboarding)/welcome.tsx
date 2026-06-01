@@ -1,9 +1,9 @@
-// 01. OnboardingWelcome — hero intro with pulsing mic glyph + CTAs.
-// Matches mockup screen 01: brand logo, value prop, primary "Get started",
-// secondary "I have an account", legal footnote.
+// 01. OnboardingWelcome — pixel-match mockup screen 01.
+// Hero mic glyph with pulse ring, gradient blobs in corners, brand title,
+// primary "Get started" + ghost "I have an account" + legal footnote.
 
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Text, View, useColorScheme } from 'react-native';
+import { Animated, Easing, Pressable, Text, View, useColorScheme } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen, Button } from '../../src/components/glass';
@@ -13,13 +13,13 @@ export default function WelcomeScreen() {
   const scheme = useColorScheme() ?? 'light';
   const isDark = scheme === 'dark';
 
-  // Mic pulse — radial ring expanding every ~1.4s. Matches design.md § 11.
+  // Pulse ring (matches mockup `.ring-pulse`).
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.timing(pulse, {
         toValue: 1,
-        duration: 1400,
+        duration: 1600,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
@@ -27,19 +27,64 @@ export default function WelcomeScreen() {
     loop.start();
     return () => loop.stop();
   }, [pulse]);
-
   const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] });
   const ringOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] });
 
+  const ink = isDark ? '#F8FAFC' : '#0F172A';
+  const meta = isDark ? '#94A3B8' : '#64748B';
+  const muted = isDark ? '#64748B' : '#94A3B8';
+  const brand = isDark ? '#60A5FA' : '#3B82F6';
+
   return (
     <Screen>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 32 }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          {/* Pulse rings */}
+      {/* Decorative gradient blobs (top-right brand, bottom-left accent) */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: -40,
+          right: -40,
+          width: 240,
+          height: 240,
+          borderRadius: 120,
+          backgroundColor: 'rgba(59,130,246,0.30)',
+          opacity: isDark ? 0.55 : 1,
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          bottom: -80,
+          left: -40,
+          width: 240,
+          height: 240,
+          borderRadius: 120,
+          backgroundColor: 'rgba(244,63,94,0.30)',
+          opacity: isDark ? 0.55 : 1,
+        }}
+      />
+
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 24,
+          paddingBottom: 32,
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: -32,
+          }}
+        >
+          {/* Mic glyph w/ pulse ring */}
           <View
             style={{
-              width: 120,
-              height: 120,
+              width: 96,
+              height: 96,
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 32,
@@ -50,8 +95,8 @@ export default function WelcomeScreen() {
                 position: 'absolute',
                 width: 96,
                 height: 96,
-                borderRadius: 28,
-                backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
+                borderRadius: 24,
+                backgroundColor: brand,
                 opacity: ringOpacity,
                 transform: [{ scale: ringScale }],
               }}
@@ -60,8 +105,8 @@ export default function WelcomeScreen() {
               style={{
                 width: 96,
                 height: 96,
-                borderRadius: 28,
-                backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
+                borderRadius: 24,
+                backgroundColor: brand,
                 alignItems: 'center',
                 justifyContent: 'center',
                 shadowColor: '#3B82F6',
@@ -71,18 +116,18 @@ export default function WelcomeScreen() {
                 elevation: 10,
               }}
             >
-              <Feather name="mic" size={44} color="#FFFFFF" />
+              <Feather name="mic" size={48} color="#FFFFFF" />
             </View>
           </View>
 
           <Text
             style={{
-              fontSize: 34,
+              fontSize: 30,
               fontWeight: '700',
               textAlign: 'center',
-              color: isDark ? '#F8FAFC' : '#0F172A',
-              letterSpacing: -0.5,
-              lineHeight: 40,
+              color: ink,
+              letterSpacing: -0.6,
+              lineHeight: 36,
             }}
           >
             Speak it.{'\n'}Saved.
@@ -93,40 +138,51 @@ export default function WelcomeScreen() {
               fontSize: 15,
               lineHeight: 22,
               textAlign: 'center',
-              color: isDark ? '#94A3B8' : '#64748B',
-              paddingHorizontal: 12,
+              color: meta,
+              paddingHorizontal: 8,
             }}
           >
             Voice-first expense tracking. Say it once — AI handles the rest.
           </Text>
         </View>
 
-        <View style={{ gap: 12 }}>
+        {/* CTAs */}
+        <View>
           <Button
             size="lg"
             fullWidth
-            onPress={() => router.replace('/(onboarding)/signup')}
+            onPress={() => router.push('/(onboarding)/signup')}
           >
             Get started
           </Button>
-          <Button
-            size="md"
-            variant="ghost"
-            fullWidth
+          <Pressable
+            accessibilityRole="button"
             onPress={() => router.push('/(onboarding)/login')}
+            style={({ pressed }) => ({
+              marginTop: 12,
+              height: 48,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 16,
+              opacity: pressed ? 0.7 : 1,
+            })}
           >
-            I already have an account
-          </Button>
+            <Text style={{ color: ink, fontSize: 14, fontWeight: '500' }}>
+              I have an account
+            </Text>
+          </Pressable>
           <Text
             style={{
               fontSize: 11,
               textAlign: 'center',
-              marginTop: 8,
-              color: isDark ? '#64748B' : '#94A3B8',
+              marginTop: 24,
+              color: muted,
               lineHeight: 16,
             }}
           >
-            By continuing you agree to the Terms and Privacy.
+            By continuing you agree to the{' '}
+            <Text style={{ textDecorationLine: 'underline' }}>Terms</Text> and{' '}
+            <Text style={{ textDecorationLine: 'underline' }}>Privacy</Text>.
           </Text>
         </View>
       </View>

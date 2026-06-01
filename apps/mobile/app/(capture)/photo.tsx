@@ -1,19 +1,17 @@
-// Screen 12. PhotoCaptureModal — camera view w/ frame guide.
+// Screen 12. PhotoCaptureModal — pixel-match rebuild of mockup 12.
 //
-// Lifecycle:
-//   - on mount: request camera permission
-//   - tap shutter → expo-camera.takePictureAsync({ base64: true, quality 0.7 })
-//   - freeze preview → "Use photo" or "Retake"
-//   - on use → POST to /ai/parse-receipt → /(capture)/confirm
+// Layout:
+//   - Edge-to-edge full-bleed camera viewfinder (black bg)
+//   - Top row: close (X) left, flash toggle right (white-on-black/15)
+//   - Center: 192x256 frame guide with white corner brackets
+//   - Bottom row: gallery placeholder (left, dimmed) · shutter (white ring) · flip-camera (right)
+//   - On shutter: capture base64 → POST /ai/parse-receipt → replace to /(capture)/confirm
 //
-// No gallery picker yet (would require expo-image-picker — flagged in report).
-// Downscale on capture via expo-camera's `quality` knob; image-manipulator
-// also not installed, so we rely on JPEG quality only.
+// Spec mandates direct submit on shutter (no preview gate) — keep flow tight.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   Text,
   View,
@@ -23,20 +21,19 @@ import { useRouter } from 'expo-router';
 import {
   CameraView,
   useCameraPermissions,
-  type CameraCapturedPicture,
+  type CameraType,
   type FlashMode,
 } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '../../src/components/glass';
+import { Screen, Button } from '../../src/components/glass';
 import { ai, type ParsedReceipt } from '../../src/lib/endpoints';
 import { ApiError } from '../../src/lib/api';
-import { radii } from '../../src/theme/tokens';
 
-type Phase = 'permission' | 'framing' | 'preview' | 'uploading' | 'error';
+const FRAME_W = 192;
+const FRAME_H = 256;
 
-const FRAME_W = 220;
-const FRAME_H = 300;
+type Phase = 'framing' | 'uploading' | 'error';
 
 export default function PhotoCaptureScreen() {
   const router = useRouter();
@@ -45,10 +42,10 @@ export default function PhotoCaptureScreen() {
 
   const [phase, setPhase] = useState<Phase>('framing');
   const [flash, setFlash] = useState<FlashMode>('off');
-  const [picture, setPicture] = useState<CameraCapturedPicture | null>(null);
+  const [facing, setFacing] = useState<CameraType>('back');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Auto-request permission once on mount (covers first launch).
+  // Auto-request permission once on mount.
   useEffect(() => {
     if (!permission) return;
     if (!permission.granted && permission.canAskAgain) {
@@ -57,43 +54,22 @@ export default function PhotoCaptureScreen() {
   }, [permission, requestPermission]);
 
   const handleShutter = useCallback(async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || phase !== 'framing') return;
+    setPhase('uploading');
+    setErrorMsg(null);
     try {
       const pic = await cameraRef.current.takePictureAsync({
         quality: 0.7,
         base64: true,
         skipProcessing: false,
       });
-      if (!pic) {
-        setErrorMsg('Camera returned no image.');
+      if (!pic?.base64) {
+        setErrorMsg('Camera returned no image. Try again.');
         setPhase('error');
         return;
       }
-      setPicture(pic);
-      setPhase('preview');
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Capture failed.');
-      setPhase('error');
-    }
-  }, []);
-
-  const handleRetake = useCallback(() => {
-    setPicture(null);
-    setErrorMsg(null);
-    setPhase('framing');
-  }, []);
-
-  const handleUse = useCallback(async () => {
-    if (!picture?.base64) {
-      setErrorMsg('Image data missing.');
-      setPhase('error');
-      return;
-    }
-    setPhase('uploading');
-    setErrorMsg(null);
-    try {
       const parsed: ParsedReceipt = await ai.parseReceipt({
-        image: { data: picture.base64, mime: 'image/jpeg' },
+        image: { data: pic.base64, mime: 'image/jpeg' },
       });
       const payload = JSON.stringify({
         source: 'photo' as const,
@@ -113,12 +89,17 @@ export default function PhotoCaptureScreen() {
       setErrorMsg(msg);
       setPhase('error');
     }
-  }, [picture, router]);
+  }, [phase, router]);
+
+  const handleClose = useCallback(() => {
+    router.dismissAll();
+    router.replace('/(tabs)/home');
+  }, [router]);
 
   // ── permission states ─────────────────────────────────────────────────
   if (!permission) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <View className="flex-1 bg-black items-center justify-center">
         <ActivityIndicator color="#FFFFFF" />
       </View>
     );
@@ -126,254 +107,224 @@ export default function PhotoCaptureScreen() {
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#000', padding: 24 }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <View
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 48,
-              backgroundColor: 'rgba(239,68,68,0.18)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="camera-outline" size={44} color="#FCA5A5" />
+      <Screen safe={false}>
+        <View className="absolute top-0 left-0 right-0 bottom-0 bg-black" />
+        <SafeAreaView className="flex-1 px-6">
+          <View className="flex-1 items-center justify-center" style={{ gap: 16 }}>
+            <View
+              className="items-center justify-center"
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: 48,
+                backgroundColor: 'rgba(239,68,68,0.18)',
+              }}
+            >
+              <Ionicons name="camera-outline" size={44} color="#FCA5A5" />
+            </View>
+            <Text className="text-white text-xl font-bold text-center">
+              Camera permission required
+            </Text>
+            <Text className="text-white/75 text-sm text-center leading-5">
+              Grant camera access to snap receipts. Photos only leave your phone for the AI parse call.
+            </Text>
+            <View className="flex-row mt-2" style={{ gap: 12 }}>
+              <Button variant="ghost" onPress={handleClose}>Cancel</Button>
+              <Button onPress={() => void requestPermission()}>Grant access</Button>
+            </View>
           </View>
-          <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700', textAlign: 'center' }}>
-            Camera permission required
-          </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
-            Grant camera access to snap receipts. Photos never leave your phone except for the AI parse call.
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-            <Button variant="ghost" onPress={() => router.back()}>Cancel</Button>
-            <Button onPress={() => void requestPermission()}>Grant access</Button>
-          </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </Screen>
     );
   }
 
-  // ── camera viewfinder + preview ───────────────────────────────────────
+  // ── camera viewfinder ─────────────────────────────────────────────────
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {phase === 'preview' || phase === 'uploading' || (phase === 'error' && picture) ? (
-        <Image
-          source={{ uri: picture?.uri ?? '' }}
-          resizeMode="cover"
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        />
-      ) : (
-        <CameraView
-          ref={cameraRef}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          facing="back"
-          flash={flash}
-        />
-      )}
+    <View className="flex-1 bg-black">
+      <CameraView
+        ref={cameraRef}
+        style={CAMERA_FILL}
+        facing={facing}
+        flash={flash}
+      />
 
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView className="flex-1">
         {/* Top bar */}
         <View
-          style={{
-            paddingHorizontal: 20,
-            paddingTop: 8,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
+          className="flex-row items-center justify-between px-5 pt-2"
         >
           <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => ({
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            onPress={handleClose}
+            style={ROUND_BTN}
+            disabled={phase === 'uploading'}
           >
-            <Ionicons name="close" size={22} color="#FFFFFF" />
+            <Ionicons name="close" size={20} color="#FFFFFF" />
           </Pressable>
-
-          <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-            {phase === 'preview' ? 'Use this photo?' : 'Capture receipt'}
-          </Text>
-
-          {phase === 'framing' ? (
-            <Pressable
-              onPress={() =>
-                setFlash((cur) => (cur === 'off' ? 'on' : cur === 'on' ? 'auto' : 'off'))
-              }
-              style={({ pressed }) => ({
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Ionicons
-                name={flash === 'off' ? 'flash-off' : flash === 'on' ? 'flash' : 'flash-outline'}
-                size={22}
-                color="#FFFFFF"
-              />
-            </Pressable>
-          ) : (
-            <View style={{ width: 40 }} />
-          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Toggle flash"
+            onPress={() =>
+              setFlash((cur) => (cur === 'off' ? 'on' : cur === 'on' ? 'auto' : 'off'))
+            }
+            style={ROUND_BTN}
+            disabled={phase === 'uploading'}
+          >
+            <Ionicons
+              name={flash === 'off' ? 'flash-off' : flash === 'on' ? 'flash' : 'flash-outline'}
+              size={20}
+              color="#FFFFFF"
+            />
+          </Pressable>
         </View>
 
-        {/* Center: frame guide while framing, status while uploading */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        {/* Center: frame guide / uploading / error */}
+        <View className="flex-1 items-center justify-center">
           {phase === 'framing' && <FrameGuide />}
+
           {phase === 'uploading' && (
             <View
+              className="items-center px-5 py-4"
               style={{
-                paddingHorizontal: 20,
-                paddingVertical: 16,
-                borderRadius: radii.lg,
-                backgroundColor: 'rgba(0,0,0,0.55)',
-                alignItems: 'center',
                 gap: 8,
+                borderRadius: 20,
+                backgroundColor: 'rgba(0,0,0,0.55)',
               }}
             >
               <ActivityIndicator color="#FFFFFF" />
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>
-                Reading receipt...
+              <Text className="text-white text-sm font-semibold">
+                Reading receipt…
               </Text>
             </View>
           )}
+
           {phase === 'error' && (
             <View
+              className="items-center mx-6 px-5 py-4"
               style={{
-                paddingHorizontal: 20,
-                paddingVertical: 18,
-                borderRadius: radii.lg,
-                backgroundColor: 'rgba(239,68,68,0.85)',
-                alignItems: 'center',
-                gap: 8,
-                marginHorizontal: 24,
+                gap: 12,
+                borderRadius: 20,
+                backgroundColor: 'rgba(239,68,68,0.9)',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
+              <Text className="text-white text-[15px] font-bold text-center">
                 {errorMsg ?? 'Something went wrong.'}
               </Text>
+              <View className="flex-row" style={{ gap: 10 }}>
+                <Button variant="ghost" onPress={handleClose}>Cancel</Button>
+                <Button onPress={() => setPhase('framing')}>Retake</Button>
+              </View>
             </View>
           )}
         </View>
 
-        {/* Bottom controls */}
+        {/* Bottom row */}
         <View
-          style={{
-            paddingHorizontal: 24,
-            paddingBottom: 24,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
+          className="flex-row items-center justify-between px-6 pb-8"
         >
-          {phase === 'framing' ? (
-            <>
-              <View style={{ width: 56 }} />
-              <Pressable
-                onPress={handleShutter}
-                accessibilityRole="button"
-                accessibilityLabel="Take photo"
-                style={({ pressed }) => ({
-                  width: 80,
-                  height: 80,
-                  borderRadius: 40,
-                  backgroundColor: '#FFFFFF',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transform: [{ scale: pressed ? 0.95 : 1 }],
-                })}
-              >
-                <View
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 32,
-                    borderWidth: 4,
-                    borderColor: '#000',
-                  }}
-                />
-              </Pressable>
-              <View style={{ width: 56 }} />
-            </>
-          ) : phase === 'preview' || phase === 'error' ? (
-            <View style={{ flex: 1, flexDirection: 'row', gap: 12 }}>
-              <Pressable
-                onPress={handleRetake}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  paddingVertical: 16,
-                  borderRadius: radii.lg,
-                  backgroundColor: 'rgba(255,255,255,0.18)',
-                  alignItems: 'center',
-                  opacity: pressed ? 0.8 : 1,
-                })}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '600' }}>Retake</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleUse}
-                style={({ pressed }) => ({
-                  flex: 2,
-                  paddingVertical: 16,
-                  borderRadius: radii.lg,
-                  backgroundColor: '#3B82F6',
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  gap: 8,
-                  opacity: pressed ? 0.85 : 1,
-                })}
-              >
-                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
-                  Use photo
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={{ flex: 1 }} />
-          )}
+          <View style={SQUARE_BTN}>
+            <Ionicons name="image" size={22} color="#FFFFFF" />
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Take photo"
+            onPress={handleShutter}
+            disabled={phase !== 'framing'}
+            style={SHUTTER_BTN}
+          >
+            <View style={SHUTTER_INNER} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Flip camera"
+            onPress={() => setFacing((cur) => (cur === 'back' ? 'front' : 'back'))}
+            style={SQUARE_BTN}
+            disabled={phase !== 'framing'}
+          >
+            <Ionicons name="camera-reverse" size={22} color="#FFFFFF" />
+          </Pressable>
         </View>
       </SafeAreaView>
     </View>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CAMERA_FILL = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+};
+
+const ROUND_BTN = {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  backgroundColor: 'rgba(255,255,255,0.2)',
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const SQUARE_BTN = {
+  width: 48,
+  height: 48,
+  borderRadius: 16,
+  backgroundColor: 'rgba(255,255,255,0.15)',
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const SHUTTER_BTN = {
+  width: 80,
+  height: 80,
+  borderRadius: 40,
+  backgroundColor: '#FFFFFF',
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const SHUTTER_INNER = {
+  width: 64,
+  height: 64,
+  borderRadius: 32,
+  borderWidth: 4,
+  borderColor: '#000',
+};
+
 function FrameGuide() {
   return (
     <View
-      style={{
-        width: FRAME_W,
-        height: FRAME_H,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      className="items-center justify-center"
+      style={{ width: FRAME_W, height: FRAME_H }}
     >
-      {/* corner brackets */}
       <Corner top left />
       <Corner top right />
       <Corner bottom left />
       <Corner bottom right />
-      <Text style={{ color: 'rgba(255,255,255,0.95)', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
-        Frame the receipt{'\n'}inside the box
+      <Text className="text-white text-[13px] font-semibold text-center leading-relaxed px-4">
+        Frame the receipt{'\n'}here
       </Text>
     </View>
   );
 }
 
-function Corner({ top, bottom, left, right }: { top?: boolean; bottom?: boolean; left?: boolean; right?: boolean }) {
+function Corner({
+  top,
+  bottom,
+  left,
+  right,
+}: {
+  top?: boolean;
+  bottom?: boolean;
+  left?: boolean;
+  right?: boolean;
+}) {
   return (
     <View
       style={{
@@ -382,8 +333,8 @@ function Corner({ top, bottom, left, right }: { top?: boolean; bottom?: boolean;
         bottom: bottom ? -4 : undefined,
         left: left ? -4 : undefined,
         right: right ? -4 : undefined,
-        width: 28,
-        height: 28,
+        width: 32,
+        height: 32,
         borderColor: '#FFFFFF',
         borderTopWidth: top ? 4 : 0,
         borderBottomWidth: bottom ? 4 : 0,

@@ -1,15 +1,25 @@
-// 03. OnboardingAuth (sign-up side). Name (optional) + email + password + confirm.
-// On success the AuthGate in app/_layout.tsx automatically replaces to /(tabs)/home.
+// 03. OnboardingAuth (sign-up side) — pixel-match mockup screen 02 sign-up state.
+// Same chrome as login: back btn + title + subtitle, segmented toggle,
+// flat surf-l1 fields, primary submit. Adds optional name + confirm password.
 
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  useColorScheme,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Screen, Card, Button, Input } from '../../src/components/glass';
+import { Screen, Button } from '../../src/components/glass';
 import { ApiError } from '../../src/lib/api';
 import { useAuth } from '../../src/store/auth';
-import { AuthHeader } from '../../src/components/auth/AuthHeader';
-import { PasswordField } from '../../src/components/auth/PasswordField';
+import { AuthTopBar } from '../../src/components/auth/AuthTopBar';
+import { AuthField } from '../../src/components/auth/AuthField';
+import { AuthSegmented } from '../../src/components/auth/AuthSegmented';
 import { FormBanner } from '../../src/components/auth/FormBanner';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,12 +34,18 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [emailErr, setEmailErr] = useState<string | undefined>();
   const [passwordErr, setPasswordErr] = useState<string | undefined>();
   const [confirmErr, setConfirmErr] = useState<string | undefined>();
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
+
+  const meta = isDark ? '#94A3B8' : '#64748B';
+  const muted = isDark ? '#64748B' : '#94A3B8';
+  const brand = isDark ? '#60A5FA' : '#3B82F6';
 
   function validate(): boolean {
     let ok = true;
@@ -46,7 +62,7 @@ export default function SignupScreen() {
       setPasswordErr(undefined);
     }
     if (confirm !== password) {
-      setConfirmErr('Passwords don’t match');
+      setConfirmErr('Passwords do not match');
       ok = false;
     } else {
       setConfirmErr(undefined);
@@ -65,7 +81,6 @@ export default function SignupScreen() {
         password,
         trimmedName.length > 0 ? trimmedName : undefined,
       );
-      // AuthGate will redirect to /(tabs)/home.
     } catch (err) {
       const msg =
         err instanceof ApiError
@@ -88,112 +103,152 @@ export default function SignupScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, padding: 24, paddingBottom: 40 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingTop: 12,
+            paddingBottom: 32,
+          }}
           keyboardShouldPersistTaps="handled"
         >
-          <AuthHeader
+          <AuthTopBar
             title="Create your account"
             subtitle="Speak it. Track it. Make sense of your spending."
           />
 
-          <View style={{ marginTop: 28 }}>
-            <Card padded>
-              <View style={{ gap: 16 }}>
-                {submitError && <FormBanner message={submitError} tone="error" />}
+          <View style={{ marginTop: 32 }}>
+            <AuthSegmented
+              active="signup"
+              onChange={(next) => {
+                if (next === 'signin') router.replace('/(onboarding)/login');
+              }}
+            />
+          </View>
 
-                <Input
-                  label="Name (optional)"
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Yash"
-                  autoCapitalize="words"
-                  autoComplete="name"
-                  textContentType="name"
-                  returnKeyType="next"
-                  leftIcon={
-                    <Feather
-                      name="user"
-                      size={16}
-                      color={isDark ? '#94A3B8' : '#64748B'}
-                    />
-                  }
-                />
+          <View style={{ marginTop: 24, gap: 16 }}>
+            {submitError ? <FormBanner message={submitError} tone="error" /> : null}
 
-                <Input
-                  label="Email"
-                  value={email}
-                  onChangeText={(v) => {
-                    setEmail(v);
-                    if (emailErr) setEmailErr(undefined);
-                  }}
-                  placeholder="you@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="email"
-                  textContentType="emailAddress"
-                  returnKeyType="next"
-                  error={emailErr}
-                  leftIcon={
-                    <Feather
-                      name="mail"
-                      size={16}
-                      color={isDark ? '#94A3B8' : '#64748B'}
-                    />
-                  }
-                />
+            <AuthField
+              label="Name (optional)"
+              value={name}
+              onChangeText={setName}
+              placeholder="Yash"
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+              returnKeyType="next"
+              leftIcon={<Feather name="user" size={16} color={meta} />}
+            />
 
-                <PasswordField
-                  label="Password"
-                  value={password}
-                  onChangeText={(v) => {
-                    setPassword(v);
-                    if (passwordErr) setPasswordErr(undefined);
-                  }}
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                  returnKeyType="next"
-                  error={passwordErr}
-                  helper={passwordErr ? undefined : 'Minimum 8 characters'}
-                />
+            <AuthField
+              label="Email"
+              value={email}
+              onChangeText={(v) => {
+                setEmail(v);
+                if (emailErr) setEmailErr(undefined);
+              }}
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="next"
+              error={emailErr}
+              leftIcon={<Feather name="mail" size={16} color={meta} />}
+            />
 
-                <PasswordField
-                  label="Confirm password"
-                  value={confirm}
-                  onChangeText={(v) => {
-                    setConfirm(v);
-                    if (confirmErr) setConfirmErr(undefined);
-                  }}
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                  returnKeyType="done"
-                  onSubmitEditing={onSubmit}
-                  error={confirmErr}
-                />
-
-                <Button
-                  size="lg"
-                  fullWidth
-                  loading={submitting}
-                  disabled={submitting}
-                  onPress={onSubmit}
+            <AuthField
+              label="Password"
+              value={password}
+              onChangeText={(v) => {
+                setPassword(v);
+                if (passwordErr) setPasswordErr(undefined);
+              }}
+              placeholder="••••••••"
+              secureTextEntry={!showPwd}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="next"
+              error={passwordErr}
+              helper={passwordErr ? undefined : 'Minimum 8 characters'}
+              leftIcon={<Feather name="lock" size={16} color={meta} />}
+              rightSlot={
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={showPwd ? 'Hide password' : 'Show password'}
+                  onPress={() => setShowPwd((v) => !v)}
+                  hitSlop={8}
                 >
-                  Create account
-                </Button>
-              </View>
-            </Card>
+                  <Feather
+                    name={showPwd ? 'eye-off' : 'eye'}
+                    size={16}
+                    color={meta}
+                  />
+                </Pressable>
+              }
+            />
+
+            <AuthField
+              label="Confirm password"
+              value={confirm}
+              onChangeText={(v) => {
+                setConfirm(v);
+                if (confirmErr) setConfirmErr(undefined);
+              }}
+              placeholder="••••••••"
+              secureTextEntry={!showConfirm}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="done"
+              onSubmitEditing={onSubmit}
+              error={confirmErr}
+              leftIcon={<Feather name="lock" size={16} color={meta} />}
+              rightSlot={
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showConfirm ? 'Hide password' : 'Show password'
+                  }
+                  onPress={() => setShowConfirm((v) => !v)}
+                  hitSlop={8}
+                >
+                  <Feather
+                    name={showConfirm ? 'eye-off' : 'eye'}
+                    size={16}
+                    color={meta}
+                  />
+                </Pressable>
+              }
+            />
+          </View>
+
+          <View style={{ marginTop: 28 }}>
+            <Button
+              size="lg"
+              fullWidth
+              loading={submitting}
+              disabled={submitting}
+              onPress={onSubmit}
+            >
+              Create account
+            </Button>
           </View>
 
           <View
             style={{
               flexDirection: 'row',
-              alignItems: 'center',
               justifyContent: 'center',
-              marginTop: 24,
+              alignItems: 'center',
+              marginTop: 20,
               gap: 4,
             }}
           >
-            <Text style={{ fontSize: 13, color: isDark ? '#94A3B8' : '#64748B' }}>
+            <Text style={{ fontSize: 11, color: muted }}>
               Already have an account?
             </Text>
             <Pressable
@@ -201,13 +256,7 @@ export default function SignupScreen() {
               onPress={() => router.replace('/(onboarding)/login')}
               hitSlop={8}
             >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: isDark ? '#60A5FA' : '#3B82F6',
-                }}
-              >
+              <Text style={{ fontSize: 11, fontWeight: '600', color: brand }}>
                 Sign in
               </Text>
             </Pressable>
