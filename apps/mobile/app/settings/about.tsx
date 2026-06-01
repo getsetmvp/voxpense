@@ -53,15 +53,19 @@ export default function AboutScreen() {
             <Text style={{ fontSize: 13, color: meta }}>
               Voice-first expense tracker
             </Text>
-            <Text
+            <View
               style={{
-                fontSize: 11,
-                color: meta,
-                marginTop: 4,
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 6,
+                justifyContent: 'center',
+                marginTop: 8,
               }}
             >
-              v{version} · {env} · rt {runtimeVersion}
-            </Text>
+              <VersionChip label="version" value={`v${version}`} isDark={isDark} />
+              <VersionChip label="env" value={env} isDark={isDark} />
+              <VersionChip label="runtime" value={runtimeVersion} isDark={isDark} />
+            </View>
           </View>
         </Card>
 
@@ -107,5 +111,53 @@ export default function AboutScreen() {
         </Text>
       </ScrollView>
     </Screen>
+  );
+}
+
+function VersionChip({
+  label,
+  value,
+  isDark,
+}: {
+  label: string;
+  value: string;
+  isDark: boolean;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+        backgroundColor: isDark
+          ? 'rgba(96,165,250,0.18)'
+          : 'rgba(59,130,246,0.12)',
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 10,
+          fontWeight: '500',
+          color: isDark ? '#94A3B8' : '#64748B',
+          textTransform: 'uppercase',
+          letterSpacing: 0.6,
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          fontSize: 11,
+          fontWeight: '700',
+          color: isDark ? '#60A5FA' : '#3B82F6',
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }
