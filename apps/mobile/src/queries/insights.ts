@@ -22,6 +22,7 @@ import {
   reminders as remindersApi,
   wallets as walletsApi,
 } from '../lib/endpoints';
+
 import { qk } from '../query/client';
 import {
   computeBudgetProgress,
@@ -298,5 +299,41 @@ export function useDeleteWallet() {
   return useMutation({
     mutationFn: (id: string) => walletsApi.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.wallets }),
+  });
+}
+
+// ── mutations: groups ─────────────────────────────────────────────────────
+
+export function useCreateGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: groupsApi.create,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.groups });
+      qc.invalidateQueries({ queryKey: qk.categories });
+    },
+  });
+}
+
+export function useUpdateGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; body: Partial<Group> }) =>
+      groupsApi.update(vars.id, vars.body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.groups });
+      qc.invalidateQueries({ queryKey: qk.categories });
+    },
+  });
+}
+
+export function useDeleteGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => groupsApi.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.groups });
+      qc.invalidateQueries({ queryKey: qk.categories });
+    },
   });
 }

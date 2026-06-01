@@ -1,5 +1,5 @@
-// Settings stack — profile, categories, wallets, budgets, recurring, reminders,
-// preferences, privacy, about.
+// Settings stack — profile, categories, wallets, groups, budgets, recurring,
+// reminders, preferences, privacy, about.
 
 import { Stack } from 'expo-router';
 
@@ -9,6 +9,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="profile" />
       <Stack.Screen name="categories" />
       <Stack.Screen name="wallets" />
+      <Stack.Screen name="groups" />
       <Stack.Screen name="budgets" />
       <Stack.Screen name="recurring" />
       <Stack.Screen name="reminders" />
