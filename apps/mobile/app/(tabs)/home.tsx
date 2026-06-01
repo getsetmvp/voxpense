@@ -34,7 +34,8 @@ function greeting(): string {
 }
 
 export default function HomeTab() {
-  const { tokens } = useTheme();
+  const { tokens, resolved } = useTheme();
+  const heroBg = resolved === 'dark' ? '#1F1F1F' : '#0A0A0A';
   const router = useRouter();
   const firstName = useAuth((s) => s.user?.name?.split(' ')[0]) ?? 'there';
   const baseCurrency = useAuth((s) => s.user?.baseCurrency ?? 'INR');
@@ -118,14 +119,16 @@ export default function HomeTab() {
           />
         }
       >
-        {/* Hero card */}
+        {/* Hero card — always dark surface so it pops in both themes */}
         <View
           style={{
             borderRadius: 24,
-            backgroundColor: tokens.ink,
+            backgroundColor: heroBg,
             padding: 20,
             marginBottom: 16,
             overflow: 'hidden',
+            borderWidth: resolved === 'dark' ? 1 : 0,
+            borderColor: '#2A2A2A',
           }}
         >
           <Text
@@ -144,7 +147,7 @@ export default function HomeTab() {
               currency={baseCurrency}
               size={30}
               weight="700"
-              color={tokens.inkInverse}
+              color="#FAFAFA"
               mutedColor="rgba(250,250,250,0.6)"
             />
           </View>
@@ -173,7 +176,7 @@ export default function HomeTab() {
                   </Text>
                   <Text
                     style={{
-                      color: tokens.inkInverse,
+                      color: '#FAFAFA',
                       fontWeight: '600',
                       fontVariant: ['tabular-nums'],
                     }}
