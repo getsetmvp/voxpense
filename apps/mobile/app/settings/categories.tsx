@@ -103,7 +103,7 @@ export default function CategoriesSettings() {
   const openNew = () =>
     setDraft({
       name: '',
-      color: SWATCHES[0],
+      color: SWATCHES[0]!,
       icon: 'tag',
       groupId: groups[0]?.id,
     });

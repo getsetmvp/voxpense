@@ -89,7 +89,7 @@ export default function GroupsSettings() {
     return m;
   }, [cats.data]);
 
-  const openNew = () => setDraft({ name: '', color: SWATCHES[0] });
+  const openNew = () => setDraft({ name: '', color: SWATCHES[0]! });
   const openEdit = (g: Group) => setDraft({ id: g.id, name: g.name, color: g.color });
 
   const submit = async () => {

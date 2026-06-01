@@ -76,7 +76,7 @@ export default function InsightsTab() {
   const currency = user?.baseCurrency ?? 'INR';
 
   const [period, setPeriod] = useState<Period>('month');
-  const cfg = PERIODS.find((p) => p.id === period) ?? PERIODS[1];
+  const cfg = (PERIODS.find((p) => p.id === period) ?? PERIODS[1])!;
 
   const win = useInsightsWindow(cfg.days);
   const expenses = win.expenses;

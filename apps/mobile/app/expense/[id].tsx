@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Calendar, Sparkles, Trash2 } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { Screen } from '../../src/components/layout/Screen';
 import { Header } from '../../src/components/layout/Header';
@@ -338,13 +337,11 @@ export default function ExpenseDetail() {
             </Text>
           </Pressable>
           {datePickerOpen ? (
-            <DateTimePicker
-              value={new Date(draft.occurredAt)}
-              mode="datetime"
-              onChange={(_, d) => {
-                if (Platform.OS !== 'ios') setDatePickerOpen(false);
-                if (d) setDraft({ ...draft, occurredAt: d.toISOString() });
-              }}
+            <Input
+              value={draft.occurredAt}
+              onChangeText={(v) => setDraft({ ...draft, occurredAt: v })}
+              placeholder="YYYY-MM-DDTHH:mm:ssZ"
+              onBlur={() => setDatePickerOpen(false)}
             />
           ) : null}
         </View>
