@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import {
   ScrollView,
+  StyleSheet,
   View,
   Text,
   Pressable,
@@ -424,16 +425,13 @@ export default function RecurringScreen() {
         >
           <Pressable
             onPress={() => setDraft(defaultDraft())}
-            style={({ pressed }) => ({
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: brand,
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [{ scale: pressed ? 0.94 : 1 }],
-              ...shadows.fab,
-            })}
+            style={({ pressed }) => [
+              fabStyles.btn,
+              {
+                backgroundColor: brand,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
+              },
+            ]}
             accessibilityLabel="Add recurring"
           >
             <Ionicons name="add" size={28} color="#FFFFFF" />
@@ -519,3 +517,14 @@ export default function RecurringScreen() {
     </Screen>
   );
 }
+
+const fabStyles = StyleSheet.create({
+  btn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.fab,
+  },
+});

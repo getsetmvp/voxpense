@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react';
 import {
   ScrollView,
+  StyleSheet,
   View,
   Text,
   Pressable,
@@ -395,16 +396,13 @@ export default function BudgetsScreen() {
         >
           <Pressable
             onPress={() => setDraft({ ...EMPTY_DRAFT })}
-            style={({ pressed }) => ({
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: brand,
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [{ scale: pressed ? 0.94 : 1 }],
-              ...shadows.fab,
-            })}
+            style={({ pressed }) => [
+              fabStyles.btn,
+              {
+                backgroundColor: brand,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
+              },
+            ]}
             accessibilityLabel="Add budget"
           >
             <Ionicons name="add" size={28} color="#FFFFFF" />
@@ -479,3 +477,14 @@ export default function BudgetsScreen() {
     </Screen>
   );
 }
+
+const fabStyles = StyleSheet.create({
+  btn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.fab,
+  },
+});

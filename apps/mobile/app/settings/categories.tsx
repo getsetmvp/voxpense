@@ -2,7 +2,7 @@
 // FAB to add new.
 
 import { useMemo, useState } from 'react';
-import { ScrollView, View, Text, Pressable, useColorScheme, Alert } from 'react-native';
+import { ScrollView, StyleSheet, View, Text, Pressable, useColorScheme, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Category } from '@voxpense/shared-types';
 
@@ -271,16 +271,16 @@ export default function CategoriesScreen() {
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   <Pressable
                     onPress={() => setDraft({ ...draft, groupId: null })}
-                    style={({ pressed }) => ({
-                      paddingHorizontal: 12,
-                      paddingVertical: 8,
-                      borderRadius: 999,
-                      backgroundColor:
-                        draft.groupId === null
-                          ? isDark ? '#60A5FA' : '#3B82F6'
-                          : isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.9)',
-                      opacity: pressed ? 0.85 : 1,
-                    })}
+                    style={({ pressed }) => [
+                      catStyles.chipBase,
+                      {
+                        backgroundColor:
+                          draft.groupId === null
+                            ? isDark ? '#60A5FA' : '#3B82F6'
+                            : isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.9)',
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
                   >
                     <Text
                       style={{
@@ -298,18 +298,15 @@ export default function CategoriesScreen() {
                       <Pressable
                         key={g.id}
                         onPress={() => setDraft({ ...draft, groupId: g.id })}
-                        style={({ pressed }) => ({
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: 999,
-                          backgroundColor: selected
-                            ? isDark ? '#60A5FA' : '#3B82F6'
-                            : isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.9)',
-                          opacity: pressed ? 0.85 : 1,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                        })}
+                        style={({ pressed }) => [
+                          catStyles.chipRow,
+                          {
+                            backgroundColor: selected
+                              ? isDark ? '#60A5FA' : '#3B82F6'
+                              : isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.9)',
+                            opacity: pressed ? 0.85 : 1,
+                          },
+                        ]}
                       >
                         <View
                           style={{
@@ -354,3 +351,19 @@ export default function CategoriesScreen() {
     </Screen>
   );
 }
+
+const catStyles = StyleSheet.create({
+  chipBase: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  chipRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+});

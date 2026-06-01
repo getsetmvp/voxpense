@@ -8,6 +8,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Switch,
   Text,
   View,
@@ -172,17 +173,14 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel="Go back"
               onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/home' as never))}
-              style={({ pressed }) => ({
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: isDark ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.85)',
-                borderWidth: 1,
-                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)',
-                opacity: pressed ? 0.7 : 1,
-              })}
+              style={({ pressed }) => [
+                profileStyles.backBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.85)',
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)',
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
             >
               <Feather name="arrow-left" size={18} color={isDark ? '#F8FAFC' : '#0F172A'} />
             </Pressable>
@@ -453,27 +451,25 @@ export default function ProfileScreen() {
                   setCurrencyOpen(false);
                   if (!selected) await patch({ baseCurrency: c.code }, 'baseCurrency');
                 }}
-                style={({ pressed }) => ({
-                  padding: 12,
-                  borderRadius: 16,
-                  borderWidth: selected ? 2 : 1,
-                  borderColor: selected
-                    ? isDark
-                      ? '#60A5FA'
-                      : '#3B82F6'
-                    : isDark
-                      ? 'rgba(255,255,255,0.06)'
-                      : 'rgba(15,23,42,0.06)',
-                  backgroundColor: selected
-                    ? isDark
-                      ? 'rgba(96,165,250,0.12)'
-                      : 'rgba(59,130,246,0.08)'
-                    : 'transparent',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  opacity: pressed ? 0.7 : 1,
-                })}
+                style={({ pressed }) => [
+                  profileStyles.pickerOption,
+                  {
+                    borderWidth: selected ? 2 : 1,
+                    borderColor: selected
+                      ? isDark
+                        ? '#60A5FA'
+                        : '#3B82F6'
+                      : isDark
+                        ? 'rgba(255,255,255,0.06)'
+                        : 'rgba(15,23,42,0.06)',
+                    backgroundColor: selected
+                      ? isDark
+                        ? 'rgba(96,165,250,0.12)'
+                        : 'rgba(59,130,246,0.08)'
+                      : 'transparent',
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
               >
                 <Text style={{ fontSize: 24 }}>{c.flag}</Text>
                 <View style={{ flex: 1 }}>
@@ -530,27 +526,25 @@ export default function ProfileScreen() {
                   setThemeOpen(false);
                   if (!selected) await patch({ theme: t.value }, 'theme');
                 }}
-                style={({ pressed }) => ({
-                  padding: 14,
-                  borderRadius: 16,
-                  borderWidth: selected ? 2 : 1,
-                  borderColor: selected
-                    ? isDark
-                      ? '#60A5FA'
-                      : '#3B82F6'
-                    : isDark
-                      ? 'rgba(255,255,255,0.06)'
-                      : 'rgba(15,23,42,0.06)',
-                  backgroundColor: selected
-                    ? isDark
-                      ? 'rgba(96,165,250,0.12)'
-                      : 'rgba(59,130,246,0.08)'
-                    : 'transparent',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  opacity: pressed ? 0.7 : 1,
-                })}
+                style={({ pressed }) => [
+                  profileStyles.themeOption,
+                  {
+                    borderWidth: selected ? 2 : 1,
+                    borderColor: selected
+                      ? isDark
+                        ? '#60A5FA'
+                        : '#3B82F6'
+                      : isDark
+                        ? 'rgba(255,255,255,0.06)'
+                        : 'rgba(15,23,42,0.06)',
+                    backgroundColor: selected
+                      ? isDark
+                        ? 'rgba(96,165,250,0.12)'
+                        : 'rgba(59,130,246,0.08)'
+                      : 'transparent',
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
               >
                 <Feather
                   name={t.icon}
@@ -679,12 +673,41 @@ function Row({ icon, label, sublabel, rightSlot, onPress, chevron, first, last, 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        opacity: pressed ? 0.7 : 1,
-        ...(last ? { borderBottomLeftRadius: 20, borderBottomRightRadius: 20 } : {}),
-      })}
+      style={({ pressed }) => [
+        last ? profileStyles.lastRow : null,
+        { opacity: pressed ? 0.7 : 1 },
+      ]}
     >
       {inner}
     </Pressable>
   );
 }
+
+const profileStyles = StyleSheet.create({
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  pickerOption: {
+    padding: 12,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  themeOption: {
+    padding: 14,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  lastRow: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+});
