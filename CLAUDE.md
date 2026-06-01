@@ -4,10 +4,10 @@ Context for Claude when working in this repo.
 
 ## TL;DR for a fresh session
 
-1. Read [`STATE.md`](./STATE.md) FIRST — current phase, the big bug history, how to boot the emulator, how to log in to the seeded test account.
+1. Read [`~/Productivity/hustle/voxpense/state.md`](../../Productivity/hustle/voxpense/state.md) FIRST — current phase, the big bug history, how to boot the emulator, how to log in to the seeded test account.
 2. Then this file for conventions.
-3. Then `~/productivity/hustle/voxpense/design.md` for the locked spec.
-4. Then `~/productivity/hustle/voxpense/mockups/index.html` for the pixel target.
+3. Then `~/Productivity/hustle/voxpense/design.md` for the locked spec.
+4. Then `~/Productivity/hustle/voxpense/mockups/index.html` for the pixel target.
 
 ## What this repo is
 
@@ -15,25 +15,26 @@ Voice-first personal expense tracker. Expo SDK 54 mobile app + voxpense tenant i
 
 ## Required reading
 
-- **Current state**: [`STATE.md`](./STATE.md) (this repo)
+- **Current state**: [`~/Productivity/hustle/voxpense/state.md`](../../Productivity/hustle/voxpense/state.md)
+- **Launch plan**: [`~/Productivity/hustle/voxpense/play-store.md`](../../Productivity/hustle/voxpense/play-store.md)
+- **Project layout convention**: [`~/Productivity/standards/project-layout.md`](../../Productivity/standards/project-layout.md) — single source of truth for where files go
 - **Repo type**: `frontend-mobile`
-- **Type spec**: `~/productivity/standards/frontend-mobile.md`
-- **OTA system**: `~/productivity/standards/cloudflare-ota.md`
-- **Pipeline**: `~/productivity/standards/app-development-pipeline.md` (10 phases, MVP-rebuild done, next is Phase 7 APK)
-- **Env files**: `~/productivity/standards/env-files.md`
-- **Design (FROZEN — MVP)**: `~/productivity/hustle/voxpense/mockups/index.html` (MVP visual language, canonical)
-- **Design history**: `~/productivity/hustle/voxpense/mockups/index-glass-deprecated.html` (old glassmorphism, do not use)
-- **Rebuild hand-off**: `~/productivity/hustle/voxpense/REBUILD_HANDOFF.md` (test plan + caveats)
+- **Type spec**: `~/Productivity/standards/frontend-mobile.md`
+- **OTA system**: `~/Productivity/standards/cloudflare-ota.md`
+- **Pipeline**: `~/Productivity/standards/app-development-pipeline.md` (10 phases, MVP-rebuild done, next is Phase 7 APK)
+- **Env files**: `~/Productivity/standards/env-files.md`
+- **Design (FROZEN — MVP)**: `~/Productivity/hustle/voxpense/mockups/index.html` (MVP visual language, canonical)
+- **Design spec**: `~/Productivity/hustle/voxpense/design.md`
 
-When proposing changes, follow design.md. **The design is FROZEN** — changes require ADR.
+When proposing changes, follow design.md. **The design is FROZEN** — changes require ADR (write to `~/Productivity/hustle/voxpense/decisions.md`).
 
 ## Read order on session start
 
-1. `STATE.md` (current state + bugs + pickup commands)
+1. `~/Productivity/hustle/voxpense/state.md` (current state + bugs + pickup commands)
 2. `README.md` (project intro + build status table)
 3. `CONVENTIONS.md` (commit / branch rules)
-4. `~/productivity/hustle/voxpense/design.md` (full spec)
-5. `~/productivity/hustle/voxpense/mockups/index.html` (canonical MVP design — open in browser)
+4. `~/Productivity/hustle/voxpense/design.md` (full spec)
+5. `~/Productivity/hustle/voxpense/mockups/index.html` (canonical MVP design — open in browser)
 6. `packages/shared-types/src/index.ts` (DTOs locked, mirror of server)
 7. `apps/mobile/src/lib/api.ts` + `apps/mobile/src/lib/endpoints.ts` (fetch wrapper + typed namespaces)
 8. `apps/mobile/src/components/ui/index.ts` + `src/components/layout/index.ts` (foundation primitives)
@@ -100,7 +101,7 @@ packages/shared-types/src/index.ts   DTOs shared mobile ↔ server
 
 ## Critical no-go's
 
-- ❌ **`style={({ pressed }) => ({ flexDirection: 'row', ...})}` on Pressable** — Android Fabric drops layout props from function-form object returns. Use `style={[styles.row, { opacity: pressed ? 0.85 : 1 }]}` array-form. See STATE.md "the big bug".
+- ❌ **`style={({ pressed }) => ({ flexDirection: 'row', ...})}` on Pressable** — Android Fabric drops layout props from function-form object returns. Use `style={[styles.row, { opacity: pressed ? 0.85 : 1 }]}` array-form. See [`state.md`](../../Productivity/hustle/voxpense/state.md) "the big bug".
 - ❌ Direct calls to `ai.askchimps.ai` from the app
 - ❌ Static bearer tokens in source — never
 - ❌ AsyncStorage for tokens — always `expo-secure-store`
@@ -132,9 +133,8 @@ packages/shared-types/src/index.ts   DTOs shared mobile ↔ server
 
 ## Where related stuff lives
 
-- Planning + ADRs: `~/productivity/hustle/voxpense/`
-- Design (FROZEN): `~/productivity/hustle/voxpense/design.md`
-- Hi-fi mockups: `~/productivity/hustle/voxpense/mockups/index.html`
+- Planning + ADRs + state + launch plan: `~/Productivity/hustle/voxpense/` (state.md, play-store.md, decisions.md, design.md, tasks.md, notes.md, archive.md)
+- Hi-fi mockups: `~/Productivity/hustle/voxpense/mockups/index.html`
 - Server tenant: `~/Projects/server/src/apps/voxpense/v1/`
 - Shared backend repo: https://github.com/yashguptadeveloper/server
 - OTA system: https://github.com/yashguptadeveloper/ota-server

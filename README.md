@@ -8,7 +8,7 @@
 |---|---|
 | Type | `frontend-mobile` (internal monorepo: `apps/mobile/` day-1, future `apps/web/`) |
 | Visibility | Private |
-| Status | **Pre-launch.** Feature-complete on emulator + physical Vivo V2437 phone. Two unpushed commits sit on local `main` (worklets dep + back-flash fix). Next: signed preview APK → daily-use trial → Play Store. See [`STATE.md`](./STATE.md) for current state and [`PLAYSTORE.md`](./PLAYSTORE.md) for the sequenced launch plan. |
+| Status | **Pre-launch.** Feature-complete on emulator + physical Vivo V2437 phone. Two unpushed commits sit on local `main` (worklets dep + back-flash fix). Next: signed preview APK → daily-use trial → Play Store. Current state snapshot: [`~/Productivity/hustle/voxpense/state.md`](../../Productivity/hustle/voxpense/state.md). Sequenced launch plan: [`~/Productivity/hustle/voxpense/play-store.md`](../../Productivity/hustle/voxpense/play-store.md). |
 | Backend tenant | `voxpense` on `https://server.getsetmvp.com/voxpense/v1/*` |
 | OTA system | Cloudflare via [yashguptadeveloper/ota-server](https://github.com/yashguptadeveloper/ota-server) — NOT EAS Update |
 | Distribution | EAS Build → APK (preview) + AAB (production). Play Store internal track is the next milestone. |
@@ -42,7 +42,7 @@ Twelve features per `design.md`: voice capture, photo receipt, manual entry, lis
 | AI | server-proxied via `ai.askchimps.ai` |
 | Build | EAS Build (3 profiles: development / preview / production) |
 | OTA | Cloudflare Worker + R2 via `ota-server` (self-hosted, NOT EAS Update) |
-| Error tracking | Sentry React Native — DSN slot exists, SDK not yet wired (Phase C1 of `PLAYSTORE.md`) |
+| Error tracking | Sentry React Native — DSN slot exists, SDK not yet wired (Phase C1 of [`play-store.md`](../../Productivity/hustle/voxpense/play-store.md)) |
 
 SDK 54 was attempted in commit `1ecb1e7` and rolled back in `d822fa2` (`expo-file-system 19` API breakage). Re-attempt only after the Play Store launch.
 
@@ -74,8 +74,6 @@ voxpense/
 ├── .github/workflows/
 │   └── ota-publish.yaml         push to main → preview / tag v* → production
 ├── README.md                    this file
-├── STATE.md                     current state for fresh Claude sessions
-├── PLAYSTORE.md                 sequenced Play Store launch plan
 ├── CLAUDE.md                    Claude session primer
 ├── CONVENTIONS.md               repo-local rules
 └── package.json                 pnpm workspaces root
@@ -101,7 +99,7 @@ eas build --profile development --platform android
 # install resulting APK on Android device
 ```
 
-Then for daily work: `pnpm dev` and launch the deep link as in [`STATE.md`](./STATE.md) → "Pick up where I left off".
+Then for daily work: `pnpm dev` and launch the deep link as in [`state.md`](../../Productivity/hustle/voxpense/state.md) → "Pick up where I left off".
 
 ## Env files
 
@@ -137,7 +135,7 @@ eas build --profile production --platform android   # AAB for Play Store
 eas submit --platform android --track internal      # to Play Console internal track
 ```
 
-Full sequence from current state → live Play Store listing: [`PLAYSTORE.md`](./PLAYSTORE.md).
+Full sequence from current state → live Play Store listing: [`play-store.md`](../../Productivity/hustle/voxpense/play-store.md).
 
 ## Local dev quickstart
 
@@ -175,8 +173,8 @@ Conventions:
 - Server state via React Query, never `useEffect` fetches.
 - Auth via the Zustand store at `src/store/auth.ts`; token in `expo-secure-store`.
 - Theme via `useTheme().tokens` only; no hex strings outside `src/theme/tokens.ts`.
-- Pressable styles: static array-form for any layout-bearing Pressable (Android Fabric bug — see `STATE.md`).
-- Stack layouts: every `Stack` sets `contentStyle.backgroundColor` from theme tokens (otherwise back transitions flash white — also in `STATE.md`).
+- Pressable styles: static array-form for any layout-bearing Pressable (Android Fabric bug — see [`state.md`](../../Productivity/hustle/voxpense/state.md)).
+- Stack layouts: every `Stack` sets `contentStyle.backgroundColor` from theme tokens (otherwise back transitions flash white — also in [`state.md`](../../Productivity/hustle/voxpense/state.md)).
 
 ## Build state (last sweep, 2026-06-01)
 
@@ -195,7 +193,7 @@ End-to-end manual QA on emulator-5556 (fresh boot, second AVD) covering both lig
 | Expense detail (full edit form, group/wallet chips, date input, save, delete) | ✓ | ✓ | ✓ | ✓ |
 | Back navigation across all sub-screens | n/a | n/a | ✓ no flash | ✓ no flash |
 
-Not exercised on emulator (require real hardware): voice STT, photo OCR, mic / camera permissions, OTA fetch. Validated in Phase B (`PLAYSTORE.md`).
+Not exercised on emulator (require real hardware): voice STT, photo OCR, mic / camera permissions, OTA fetch. Validated in Phase B ([`play-store.md`](../../Productivity/hustle/voxpense/play-store.md)).
 
 Known minor polish items deferred to v1.1: live wallet balance computation, expo-image-picker gallery support on photo screen, native date-picker on manual entry, custom date-range preset on expense filters, swipe-to-delete on expense rows, audio playback in expense detail, AI conversation history persistence, SDK 54 retry.
 
