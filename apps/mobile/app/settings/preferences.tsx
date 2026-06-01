@@ -1,238 +1,271 @@
-// Preferences screen — theme, base currency, voice toggles. Patches via users.update.
+// Preferences settings — theme selector, base currency, voice toggles, locale.
+// Theme bound to useThemeStore. Currency + voice flags persist via users.update.
 
-import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, Alert, useColorScheme } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { useMemo, useState } from 'react';
+import { ScrollView, View, Text, Pressable, Switch } from 'react-native';
+import { Sun, Moon, Smartphone, Check, Globe, Mic, Headphones } from 'lucide-react-native';
 
-import { Screen, Sheet } from '../../src/components/glass';
-import {
-  NavRow,
-  ScreenHeader,
-  SectionGroup,
-  SegmentedControl,
-  Toggle,
-} from '../../src/components/settings';
-import { users } from '../../src/lib/endpoints';
+import { Screen } from '../../src/components/layout/Screen';
+import { Header } from '../../src/components/layout/Header';
+import { SectionHeader } from '../../src/components/layout/SectionHeader';
+import { Card } from '../../src/components/ui/Card';
+import { ListItem } from '../../src/components/ui/ListItem';
+import { Sheet } from '../../src/components/ui/Sheet';
+import { useToast } from '../../src/components/ui/Toast';
+import { useTheme } from '../../src/theme/ThemeProvider';
+import { useThemeStore, type ThemeMode } from '../../src/store/theme';
 import { useAuth } from '../../src/store/auth';
+import { users } from '../../src/lib/endpoints';
+import { SEED_CURRENCIES } from '../../src/lib/currencies';
 
-interface CurrencyOption {
-  code: string;
-  name: string;
-  symbol: string;
-}
-
-const CURRENCIES: CurrencyOption[] = [
-  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-  { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
-  { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+const THEME_OPTIONS: { value: ThemeMode; label: string; Icon: typeof Sun }[] = [
+  { value: 'auto', label: 'Auto', Icon: Smartphone },
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'dark', label: 'Dark', Icon: Moon },
 ];
 
-export default function PreferencesScreen() {
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
+export default function PreferencesSettings() {
+  const { tokens } = useTheme();
+  const toast = useToast();
+  const mode = useThemeStore((s) => s.mode);
+  const setMode = useThemeStore((s) => s.setMode);
+
   const user = useAuth((s) => s.user);
-  const refreshUser = useAuth((s) => s.refreshUser);
   const setUser = useAuth((s) => s.setUser);
+  const refreshUser = useAuth((s) => s.refreshUser);
 
-  const [saving, setSaving] = useState(false);
-  const [pickingCurrency, setPickingCurrency] = useState(false);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [savingField, setSavingField] = useState<string | null>(null);
 
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const iconColor = isDark ? '#CBD5E1' : '#334155';
+  const selectedCurrency = useMemo(
+    () =>
+      SEED_CURRENCIES.find((c) => c.code === (user?.baseCurrency ?? 'INR')) ??
+      SEED_CURRENCIES[0]!,
+    [user?.baseCurrency],
+  );
 
-  const patch = async (body: Parameters<typeof users.update>[0]) => {
-    if (!user) return;
-    setSaving(true);
+  const patch = async (
+    body: Parameters<typeof users.update>[0],
+    field: string,
+  ) => {
+    setSavingField(field);
     try {
       const updated = await users.update(body);
       setUser(updated);
       await refreshUser();
     } catch (e) {
-      Alert.alert('Update failed', e instanceof Error ? e.message : 'Try again.');
+      toast.show(e instanceof Error ? e.message : 'Update failed', 'bad');
     } finally {
-      setSaving(false);
+      setSavingField(null);
     }
   };
 
-  if (!user) {
-    return (
-      <Screen>
-        <ScreenHeader title="Preferences" />
-      </Screen>
-    );
-  }
+  const onThemePick = (next: ThemeMode) => {
+    setMode(next);
+    // Also persist on server so it syncs across devices.
+    patch({ theme: next }, 'theme').catch(() => {});
+  };
 
   return (
     <Screen>
-      <ScreenHeader title="Preferences" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
-        <SectionGroup title="Appearance">
-          <View
-            style={{
-              padding: 14,
-              borderBottomWidth: 1,
-              borderBottomColor: isDark
-                ? 'rgba(255,255,255,0.05)'
-                : 'rgba(15,23,42,0.06)',
-            }}
-          >
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginBottom: 10,
-              }}
-            >
-              <Ionicons name="color-palette-outline" size={20} color={iconColor} />
-              <Text
-                style={{
-                  marginLeft: 10,
-                  fontSize: 15,
-                  fontWeight: '500',
-                  color: isDark ? '#F8FAFC' : '#0F172A',
-                }}
-              >
-                Theme
-              </Text>
+      <Header back title="Preferences" />
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 12 }}
+      >
+        {/* Theme */}
+        <SectionHeader>Appearance</SectionHeader>
+        <Card>
+          <View style={{ gap: 10 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: tokens.ink }}>
+              Theme
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {THEME_OPTIONS.map(({ value, label, Icon }) => {
+                const active = mode === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => onThemePick(value)}
+                    style={{
+                      flex: 1,
+                      height: 64,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: active ? tokens.brand : tokens.border,
+                      backgroundColor: active
+                        ? `${tokens.brand}1A`
+                        : tokens.surface,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Icon
+                      size={18}
+                      color={active ? tokens.brand : tokens.ink}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '600',
+                        color: active ? tokens.brand : tokens.ink,
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-            <SegmentedControl
-              value={user.theme}
-              onChange={(theme) => patch({ theme })}
-              options={[
-                { label: 'Auto', value: 'auto' },
-                { label: 'Light', value: 'light' },
-                { label: 'Dark', value: 'dark' },
-              ]}
-            />
           </View>
-          <NavRow
-            icon={<Ionicons name="globe-outline" size={20} color={iconColor} />}
-            label="Base currency"
-            badge={user.baseCurrency}
-            onPress={() => setPickingCurrency(true)}
-            isLast
-          />
-        </SectionGroup>
+        </Card>
 
-        <SectionGroup title="Voice capture">
-          <NavRow
-            icon={<Ionicons name="flash-outline" size={20} color={iconColor} />}
-            label="Auto-save voice"
-            hint="Save expense when AI confidence ≥ 85%"
-            rightAccessory={
-              <Toggle
-                value={user.autoSaveVoice}
-                onValueChange={(v) => patch({ autoSaveVoice: v })}
-                disabled={saving}
+        {/* Money */}
+        <SectionHeader>Money</SectionHeader>
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <ListItem
+            leading={<Globe size={18} color={tokens.muted} />}
+            title="Base currency"
+            subtitle={selectedCurrency.name}
+            trailingText={`${selectedCurrency.symbol} ${selectedCurrency.code}`}
+            onPress={() => setCurrencyOpen(true)}
+          />
+          <View
+            style={{ height: 1, backgroundColor: tokens.border, marginLeft: 14 }}
+          />
+          <ListItem
+            leading={<Globe size={18} color={tokens.muted} />}
+            title="Locale"
+            subtitle="Used for dates and number formatting"
+            trailingText="en-IN"
+          />
+        </Card>
+
+        {/* Voice capture */}
+        <SectionHeader>Voice capture</SectionHeader>
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <ListItem
+            leading={<Mic size={18} color={tokens.muted} />}
+            title="Auto-save voice"
+            subtitle="High-confidence entries save without confirm"
+            trailing={
+              <Switch
+                value={!!user?.autoSaveVoice}
+                onValueChange={(v) =>
+                  patch({ autoSaveVoice: v }, 'autoSaveVoice')
+                }
+                disabled={savingField !== null}
+                trackColor={{ false: tokens.border, true: tokens.brand }}
+                thumbColor="#FFFFFF"
               />
             }
-            showChevron={false}
           />
-          <NavRow
-            icon={<Ionicons name="volume-medium-outline" size={20} color={iconColor} />}
-            label="Keep voice audio"
-            hint="Store recordings for replay (uses storage)"
-            rightAccessory={
-              <Toggle
-                value={user.keepVoiceAudio}
-                onValueChange={(v) => patch({ keepVoiceAudio: v })}
-                disabled={saving}
+          <View
+            style={{ height: 1, backgroundColor: tokens.border, marginLeft: 14 }}
+          />
+          <ListItem
+            leading={<Headphones size={18} color={tokens.muted} />}
+            title="Keep voice audio"
+            subtitle="Store the recording with each expense"
+            trailing={
+              <Switch
+                value={!!user?.keepVoiceAudio}
+                onValueChange={(v) =>
+                  patch({ keepVoiceAudio: v }, 'keepVoiceAudio')
+                }
+                disabled={savingField !== null}
+                trackColor={{ false: tokens.border, true: tokens.brand }}
+                thumbColor="#FFFFFF"
               />
             }
-            showChevron={false}
-            isLast
           />
-        </SectionGroup>
+        </Card>
 
-        <Text style={{ textAlign: 'center', fontSize: 11, color: meta, marginTop: 8 }}>
+        <Text
+          style={{
+            fontSize: 11,
+            color: tokens.muted,
+            textAlign: 'center',
+            marginTop: 8,
+          }}
+        >
           Changes save instantly.
         </Text>
       </ScrollView>
 
-      <Sheet open={pickingCurrency} onClose={() => setPickingCurrency(false)}>
+      <Sheet
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+        heightPct={75}
+      >
         <Text
           style={{
             fontSize: 17,
             fontWeight: '700',
+            color: tokens.ink,
             marginBottom: 12,
-            color: ink,
           }}
         >
           Base currency
         </Text>
-        <View style={{ gap: 6 }}>
-          {CURRENCIES.map((c) => {
-            const selected = c.code === user.baseCurrency;
+        <ScrollView contentContainerStyle={{ paddingBottom: 24, gap: 4 }}>
+          {SEED_CURRENCIES.map((c) => {
+            const selected = c.code === user?.baseCurrency;
             return (
               <Pressable
                 key={c.code}
                 onPress={() => {
-                  setPickingCurrency(false);
-                  if (!selected) patch({ baseCurrency: c.code });
+                  setCurrencyOpen(false);
+                  if (!selected) patch({ baseCurrency: c.code }, 'baseCurrency');
                 }}
-                style={[
-                  {
-                    padding: 12,
-                    borderRadius: 16,
-                    borderWidth: selected ? 2 : 1,
-                    borderColor: selected
-                      ? isDark
-                        ? '#60A5FA'
-                        : '#3B82F6'
-                      : isDark
-                        ? 'rgba(255,255,255,0.06)'
-                        : 'rgba(15,23,42,0.06)',
-                    backgroundColor: selected
-                      ? isDark
-                        ? 'rgba(96,165,250,0.12)'
-                        : 'rgba(59,130,246,0.08)'
-                      : 'transparent',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                  },
-                ]}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: selected ? tokens.brand : tokens.border,
+                  backgroundColor: selected
+                    ? `${tokens.brand}1A`
+                    : 'transparent',
+                }}
               >
                 <View
                   style={{
                     width: 36,
                     height: 36,
                     borderRadius: 10,
-                    backgroundColor: isDark
-                      ? 'rgba(31,41,55,0.7)'
-                      : 'rgba(241,244,248,0.9)',
+                    backgroundColor: tokens.surface2,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: ink }}>
+                  <Text
+                    style={{ fontWeight: '700', color: tokens.ink, fontSize: 14 }}
+                  >
                     {c.symbol}
                   </Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: ink }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: tokens.ink,
+                    }}
+                  >
                     {c.code}
                   </Text>
-                  <Text style={{ fontSize: 12, color: meta }}>{c.name}</Text>
+                  <Text style={{ fontSize: 12, color: tokens.muted }}>
+                    {c.name}
+                  </Text>
                 </View>
-                {selected && (
-                  <Feather
-                    name="check"
-                    size={20}
-                    color={isDark ? '#60A5FA' : '#3B82F6'}
-                  />
-                )}
+                {selected ? <Check size={20} color={tokens.brand} /> : null}
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
       </Sheet>
     </Screen>
   );

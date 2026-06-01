@@ -1,60 +1,31 @@
-// 06. HomeScreen — pixel-match mockup screen 06.
-// Top: dayLabel + greeting + bell button.
-// Hero: TODAY'S SPENDING section-h + huge tnum amount (₹X.XX) + delta chip.
-// Glass card: THIS WEEK + week delta + total + 7-day sparkline.
-// Quick add: 3 tiles aspect-3/4, Voice = brand+white, others = surf-l0.
-// Recent: header + "See all →" link + last 2 expenses.
+// Home tab (mockup 07). MVP visual design, new-app data layer.
+// Greeting + monthly hero + top groups + budgets carousel + recent list + FAB.
 
 import { useMemo } from 'react';
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useColorScheme,
-} from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
+import { Bell, ListPlus, Plus, TrendingUp, User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
-
-import { Card, Screen } from '../../src/components/glass';
-import {
-  EmptyExpenses,
-  ExpenseRow,
-} from '../../src/components/expense';
-import { Chip } from '../../src/components/home/Chip';
-import { WeekSparkline } from '../../src/components/home/WeekSparkline';
-import {
-  flattenPages,
-  useExpensesList,
-} from '../../src/queries/expenses';
-import {
-  useCategories,
-  useWallets,
-} from '../../src/queries/insights';
+import { Screen } from '../../src/components/layout/Screen';
+import { FabStack } from '../../src/components/layout/FabStack';
+import { SectionHeader } from '../../src/components/layout/SectionHeader';
+import { Amount } from '../../src/components/ui/Amount';
+import { Chip } from '../../src/components/ui/Chip';
+import { EmptyState } from '../../src/components/ui/EmptyState';
+import { ExpenseRow } from '../../src/components/feature/ExpenseRow';
+import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAuth } from '../../src/store/auth';
-import { rangeForPreset } from '../../src/hooks/useDateRange';
-import { addDays, startOfDay, startOfWeek, toNumber } from '../../src/lib/insights';
-import { formatCurrency } from '../../src/lib/format';
+import {
+  useGroups,
+  useInsightsWindow,
+  usePeriodTotals,
+  useExpensesByCategory,
+  useBudgetProgress,
+} from '../../src/queries/insights';
+import { useExpensesList, flattenPages } from '../../src/queries/expenses';
+import { formatMoney } from '../../src/lib/money';
 
-type QuickAction = {
-  key: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  href: '/(capture)/voice' | '/(capture)/photo' | '/(capture)/manual';
-  primary?: boolean;
-};
-
-const QUICK_ACTIONS: QuickAction[] = [
-  { key: 'voice', label: 'Voice', icon: 'mic', href: '/(capture)/voice', primary: true },
-  { key: 'photo', label: 'Receipt', icon: 'camera', href: '/(capture)/photo' },
-  { key: 'manual', label: 'Manual', icon: 'create', href: '/(capture)/manual' },
-];
-
-function greetingFor(now: Date): string {
-  const h = now.getHours();
+function greeting(): string {
+  const h = new Date().getHours();
   if (h < 5) return 'Up late';
   if (h < 12) return 'Good morning';
   if (h < 17) return 'Good afternoon';
@@ -62,465 +33,364 @@ function greetingFor(now: Date): string {
   return 'Good night';
 }
 
-function splitAmount(amount: number, currency: string): { head: string; tail: string } {
-  const formatted = formatCurrency(amount, currency);
-  const dot = formatted.lastIndexOf('.');
-  if (dot < 0) return { head: formatted, tail: '' };
-  return { head: formatted.slice(0, dot), tail: formatted.slice(dot) };
-}
-
-export default function HomeScreen() {
+export default function HomeTab() {
+  const { tokens } = useTheme();
   const router = useRouter();
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
-  const user = useAuth((s) => s.user);
-  const currency = user?.baseCurrency ?? 'INR';
+  const firstName = useAuth((s) => s.user?.name?.split(' ')[0]) ?? 'there';
+  const baseCurrency = useAuth((s) => s.user?.baseCurrency ?? 'INR');
+  const userInitial = useAuth(
+    (s) => (s.user?.name ?? 'Y').charAt(0).toUpperCase(),
+  );
 
-  // Pull this week's expenses (covers Today + week card + recent list).
-  const week = useMemo(() => rangeForPreset('thisWeek'), []);
-  const list = useExpensesList({ from: week.from, to: week.to, limit: 100 });
-  const expenses = flattenPages(list.data);
+  // Monthly window
+  const insights = useInsightsWindow(30);
+  const totals = usePeriodTotals(insights.expenses);
+  const monthTotal = totals.thisMonth;
 
-  // ── derive today / yesterday / week totals + 7-day sparkline ───────────
-  const { todayTotal, yesterdayTotal, weekTotal, dailyValues } = useMemo(() => {
-    const now = new Date();
-    const today = startOfDay(now);
-    const yesterday = addDays(today, -1);
-    const tomorrow = addDays(today, 1);
-    const weekStart = startOfWeek(now);
+  // Top categories (group-level mapping not directly available — use categories as proxy
+  // since CategoryBreakdown carries a name + color and matches "top 3" surface area).
+  const catBreakdown = useExpensesByCategory(insights.expenses);
+  const topCats = catBreakdown.slice(0, 3);
 
-    let tToday = 0;
-    let tYesterday = 0;
-    let tWeek = 0;
-    const buckets = new Array<number>(7).fill(0);
+  // Budgets
+  const budgets = useBudgetProgress();
 
-    for (const e of expenses) {
-      const ts = new Date(e.occurredAt);
-      const amt = toNumber(e.amount);
-      if (ts >= today && ts < tomorrow) tToday += amt;
-      else if (ts >= yesterday && ts < today) tYesterday += amt;
-      if (ts >= weekStart) {
-        tWeek += amt;
-        const idx = Math.min(
-          6,
-          Math.max(0, Math.floor((ts.getTime() - weekStart.getTime()) / 86_400_000)),
-        );
-        buckets[idx] = (buckets[idx] ?? 0) + amt;
-      }
-    }
+  // Groups (for ExpenseRow decoration)
+  const groupsQ = useGroups();
+  const groups = groupsQ.data ?? [];
 
-    return {
-      todayTotal: tToday,
-      yesterdayTotal: tYesterday,
-      weekTotal: tWeek,
-      dailyValues: buckets,
-    };
-  }, [expenses]);
+  // Recent expenses
+  const recent = useExpensesList({ limit: 10 });
+  const expenses = flattenPages(recent.data);
 
-  // Reference data for row decoration
-  const categoriesQ = useCategories();
-  const walletsQ = useWallets();
-  const categoryById = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof categoriesQ.data>[number]>();
-    (categoriesQ.data ?? []).forEach((c) => m.set(c.id, c));
-    return m;
-  }, [categoriesQ.data]);
-  const walletById = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof walletsQ.data>[number]>();
-    (walletsQ.data ?? []).forEach((w) => m.set(w.id, w));
-    return m;
-  }, [walletsQ.data]);
-
-  // Recent 2 expenses (most-recent first)
-  const recent = useMemo(() => expenses.slice(0, 2), [expenses]);
-
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const brand = isDark ? '#60A5FA' : '#3B82F6';
-  const tileBg = isDark ? '#111827' : '#FFFFFF';
-
-  const userName = user?.name?.trim() || 'there';
-  const greeting = greetingFor(new Date());
-  const todayDateLabel = format(new Date(), 'EEEE, d MMMM');
-
-  // Hero amount split (₹1,240 + .50)
-  const { head: heroHead, tail: heroTail } = splitAmount(todayTotal, currency);
-
-  // Today vs yesterday delta
-  const todayDelta = todayTotal - yesterdayTotal;
-  const todayDeltaLabel = (() => {
-    if (yesterdayTotal === 0 && todayTotal === 0) return null;
-    const sign = todayDelta >= 0 ? '+' : '-';
-    return `${sign}${formatCurrency(Math.abs(todayDelta), currency)} vs yesterday`;
-  })();
-  const todayDeltaUp = todayDelta >= 0;
+  const refreshing = insights.isLoading || recent.isRefetching;
+  const onRefresh = () => {
+    insights.refetch();
+    recent.refetch();
+  };
 
   return (
-    <Screen>
+    <Screen edges={['top']}>
+      {/* Top bar */}
+      <View
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 8,
+          paddingBottom: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <View>
+          <Text style={{ fontSize: 12, color: tokens.muted }}>{greeting()}</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: tokens.ink }}>
+            {firstName}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <Pressable
+            onPress={() => router.push('/settings/reminders')}
+            style={BELL_BTN(tokens.border, tokens.surface)}
+          >
+            <Bell size={18} color={tokens.ink} />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/settings/profile')}
+            style={AVATAR_BTN(tokens.brand)}
+          >
+            <Text style={{ color: tokens.brand, fontWeight: '700' }}>
+              {userInitial}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
       <ScrollView
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 160 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={list.isRefetching && !list.isFetchingNextPage}
-            onRefresh={() => list.refetch()}
-            tintColor={brand}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={tokens.brand}
+            colors={[tokens.brand]}
           />
         }
       >
-        {/* Top bar: date + greeting + bell */}
+        {/* Hero card */}
         <View
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingHorizontal: 20,
-            paddingTop: 8,
+            borderRadius: 24,
+            backgroundColor: tokens.ink,
+            padding: 20,
+            marginBottom: 16,
+            overflow: 'hidden',
           }}
         >
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ fontSize: 13, color: meta }}>{todayDateLabel}</Text>
-            <Text
-              numberOfLines={1}
-              style={{
-                fontSize: 15,
-                fontWeight: '600',
-                color: ink,
-                marginTop: 2,
-              }}
-            >
-              {greeting}, {userName}
-            </Text>
-          </View>
-          <Pressable
-            onPress={() => router.push('/settings/reminders')}
-            accessibilityLabel="Reminders"
-            style={({ pressed }) => [
-              homeStyles.bellBtn,
-              {
-                backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)',
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Ionicons name="notifications-outline" size={20} color={ink} />
-          </Pressable>
-        </View>
-
-        {/* Today's spending hero */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
           <Text
             style={{
               fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 1,
+              color: 'rgba(250,250,250,0.6)',
               textTransform: 'uppercase',
-              color: meta,
+              letterSpacing: 0.5,
             }}
           >
-            Today's spending
+            Spent this month
           </Text>
+          <View style={{ marginTop: 4 }}>
+            <Amount
+              value={monthTotal}
+              currency={baseCurrency}
+              size={30}
+              weight="700"
+              color={tokens.inkInverse}
+              mutedColor="rgba(250,250,250,0.6)"
+            />
+          </View>
           <View
             style={{
               flexDirection: 'row',
-              alignItems: 'baseline',
+              alignItems: 'center',
+              gap: 6,
               marginTop: 4,
             }}
           >
-            <Text
-              style={{
-                fontSize: 44,
-                fontWeight: '700',
-                color: ink,
-                letterSpacing: -0.8,
-                lineHeight: 48,
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {heroHead}
+            <TrendingUp size={14} color={tokens.warn} />
+            <Text style={{ fontSize: 12, color: 'rgba(250,250,250,0.7)' }}>
+              vs last month
             </Text>
-            {heroTail ? (
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: '500',
-                  color: meta,
-                  marginLeft: 1,
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {heroTail}
-              </Text>
-            ) : null}
           </View>
-          {todayDeltaLabel ? (
-            <View style={{ marginTop: 8 }}>
-              <Chip
-                icon={todayDeltaUp ? 'trending-up' : 'trending-down'}
-                label={todayDeltaLabel}
-                bg={todayDeltaUp ? 'rgba(245,158,11,0.12)' : 'rgba(16,185,129,0.12)'}
-                fg={todayDeltaUp ? '#F59E0B' : '#10B981'}
-              />
+          {topCats.length > 0 ? (
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              {topCats.map((g) => (
+                <View key={g.categoryId ?? 'ungrouped'} style={{ flex: 1 }}>
+                  <Text
+                    numberOfLines={1}
+                    style={{ fontSize: 11, color: 'rgba(250,250,250,0.6)' }}
+                  >
+                    {g.name}
+                  </Text>
+                  <Text
+                    style={{
+                      color: tokens.inkInverse,
+                      fontWeight: '600',
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {formatMoney(g.total, baseCurrency, {
+                      compact: g.total >= 10000,
+                    })}
+                  </Text>
+                </View>
+              ))}
             </View>
           ) : null}
         </View>
 
-        {/* This week glass card */}
-        <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
-          <Card rounded="xl">
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '700',
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                  color: meta,
-                }}
-              >
-                This week
-              </Text>
-              {expenses.length > 0 ? (
-                <Chip
-                  icon="trending-down"
-                  label={`${expenses.length} ${expenses.length === 1 ? 'entry' : 'entries'}`}
-                  bg="rgba(16,185,129,0.12)"
-                  fg="#10B981"
-                />
-              ) : null}
-            </View>
-            <Text
-              style={{
-                fontSize: 24,
-                fontWeight: '700',
-                color: ink,
-                marginTop: 4,
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {formatCurrency(weekTotal, currency)}
-            </Text>
-            <View style={{ marginTop: 8 }}>
-              <WeekSparkline values={dailyValues} />
-            </View>
-          </Card>
-        </View>
-
-        {/* Quick add tiles */}
-        <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
-          <Text
+        {/* Budgets carousel */}
+        {budgets.rows.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 12, paddingRight: 20 }}
             style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              color: meta,
-              marginBottom: 10,
+              marginHorizontal: -20,
+              paddingHorizontal: 20,
+              marginBottom: 16,
             }}
           >
-            Quick add
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            {QUICK_ACTIONS.map((qa) => (
-              <View
-                key={qa.key}
-                style={{
-                  flex: 1,
-                  aspectRatio: 3 / 4,
-                  borderRadius: 24,
-                  overflow: 'hidden',
-                  backgroundColor: qa.primary ? brand : tileBg,
-                  borderWidth: qa.primary ? 0 : 1,
-                  borderColor: isDark
-                    ? 'rgba(255,255,255,0.06)'
-                    : 'rgba(15,23,42,0.06)',
-                  shadowColor: qa.primary ? '#3B82F6' : '#000',
-                  shadowOpacity: qa.primary ? 0.3 : 0.06,
-                  shadowRadius: qa.primary ? 18 : 14,
-                  shadowOffset: { width: 0, height: qa.primary ? 12 : 6 },
-                  elevation: qa.primary ? 8 : 3,
-                }}
-              >
-                <Pressable
-                  onPress={() => router.push(qa.href)}
-                  accessibilityRole="button"
-                  accessibilityLabel={qa.label}
-                  style={({ pressed }) => ({
-                    width: '100%',
-                    height: '100%',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: pressed ? 0.85 : 1,
-                  })}
+            {budgets.rows.map((b) => {
+              const stateColor =
+                b.status === 'bad'
+                  ? tokens.bad
+                  : b.status === 'warn'
+                    ? tokens.warn
+                    : tokens.good;
+              return (
+                <View
+                  key={b.budget.id}
+                  style={{
+                    width: 180,
+                    borderRadius: 16,
+                    backgroundColor: tokens.surface,
+                    borderWidth: 1,
+                    borderColor: tokens.border,
+                    padding: 12,
+                  }}
                 >
-                  <Ionicons
-                    name={qa.icon}
-                    size={28}
-                    color={qa.primary ? '#FFFFFF' : ink}
-                  />
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Chip label={b.budget.name} variant="brand" />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '600',
+                        color: stateColor,
+                        fontVariant: ['tabular-nums'],
+                      }}
+                    >
+                      {Math.round(b.pct * 100)}%
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      height: 6,
+                      backgroundColor: tokens.border,
+                      borderRadius: 999,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${Math.min(100, b.pct * 100)}%`,
+                        height: '100%',
+                        backgroundColor: stateColor,
+                      }}
+                    />
+                  </View>
                   <Text
                     style={{
                       fontSize: 12,
-                      fontWeight: '600',
-                      color: qa.primary ? '#FFFFFF' : ink,
+                      color: tokens.muted,
                       marginTop: 8,
+                      fontVariant: ['tabular-nums'],
                     }}
                   >
-                    {qa.label}
+                    {formatMoney(b.spent, b.budget.currency)} /{' '}
+                    {formatMoney(
+                      Number(b.budget.amount),
+                      b.budget.currency,
+                    )}
                   </Text>
-                </Pressable>
+                </View>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
+        {/* Recent */}
+        <SectionHeader
+          right={
+            <Pressable onPress={() => router.push('/(tabs)/expenses')}>
+              <Text
+                style={{ fontSize: 12, color: tokens.brand, fontWeight: '600' }}
+              >
+                See all
+              </Text>
+            </Pressable>
+          }
+        >
+          Recent
+        </SectionHeader>
+
+        {expenses.length === 0 ? (
+          <EmptyState
+            icon={<User color={tokens.brand} size={28} />}
+            title="No expenses yet"
+            body="Tap the mic to log your first expense by voice, or use the camera for a receipt."
+            action={
+              <Pressable
+                onPress={() => router.push('/(capture)/manual')}
+                style={{
+                  marginTop: 8,
+                  paddingHorizontal: 16,
+                  height: 40,
+                  borderRadius: 12,
+                  backgroundColor: tokens.brand,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                }}
+              >
+                <ListPlus color="#FFFFFF" size={16} />
+                <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+                  Add manually
+                </Text>
+              </Pressable>
+            }
+          />
+        ) : (
+          <View
+            style={{
+              borderRadius: 16,
+              backgroundColor: tokens.surface,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              overflow: 'hidden',
+            }}
+          >
+            {expenses.map((e, i) => (
+              <View key={e.id}>
+                <ExpenseRow
+                  expense={e}
+                  group={groups.find((g) => g.id === e.groupId) ?? null}
+                />
+                {i < expenses.length - 1 ? (
+                  <View
+                    style={{
+                      height: 1,
+                      backgroundColor: tokens.border,
+                      marginLeft: 14,
+                    }}
+                  />
+                ) : null}
               </View>
             ))}
           </View>
-        </View>
+        )}
 
-        {/* Recent expenses */}
-        <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              marginBottom: 6,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '700',
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-                color: meta,
-              }}
-            >
-              Recent
-            </Text>
-            <Pressable
-              onPress={() => router.push('/(tabs)/expenses')}
-              accessibilityLabel="See all expenses"
-              hitSlop={6}
-            >
-              <Text style={{ color: brand, fontSize: 11, fontWeight: '600' }}>
-                See all →
-              </Text>
-            </Pressable>
-          </View>
-
-          {list.isLoading ? (
-            <SkeletonRows isDark={isDark} count={2} />
-          ) : list.isError ? (
-            <ErrorBanner
-              isDark={isDark}
-              onRetry={() => list.refetch()}
-              message="Couldn't load this week's expenses."
-            />
-          ) : recent.length === 0 ? (
-            <EmptyExpenses
-              hasFilters={false}
-              compact
-              onAdd={() => router.push('/(capture)/voice')}
-            />
-          ) : (
-            <View style={{ gap: 4 }}>
-              {recent.map((exp) => (
-                <ExpenseRow
-                  key={exp.id}
-                  expense={exp}
-                  currency={currency}
-                  category={
-                    exp.categoryId ? categoryById.get(exp.categoryId) : undefined
-                  }
-                  wallet={walletById.get(exp.walletId)}
-                  onPress={() => router.push(`/expense/${exp.id}`)}
-                />
-              ))}
-            </View>
-          )}
-        </View>
+        <Pressable
+          onPress={() => router.push('/(capture)/manual')}
+          style={{
+            marginTop: 12,
+            height: 44,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: tokens.border,
+            flexDirection: 'row',
+            gap: 6,
+          }}
+        >
+          <Plus size={16} color={tokens.ink} />
+          <Text style={{ color: tokens.ink, fontWeight: '600' }}>
+            New expense
+          </Text>
+        </Pressable>
       </ScrollView>
+      <FabStack />
     </Screen>
   );
 }
 
-function SkeletonRows({ isDark, count }: { isDark: boolean; count: number }) {
-  const bar = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)';
-  return (
-    <View style={{ gap: 8, marginTop: 4 }}>
-      {Array.from({ length: count }).map((_, i) => (
-        <View
-          key={i}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            padding: 10,
-            borderRadius: 14,
-            backgroundColor: isDark ? 'rgba(31,41,55,0.5)' : 'rgba(255,255,255,0.6)',
-            gap: 12,
-          }}
-        >
-          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: bar }} />
-          <View style={{ flex: 1, gap: 6 }}>
-            <View style={{ height: 10, width: '60%', borderRadius: 5, backgroundColor: bar }} />
-            <View style={{ height: 8, width: '40%', borderRadius: 4, backgroundColor: bar }} />
-          </View>
-          <View style={{ height: 12, width: 60, borderRadius: 6, backgroundColor: bar }} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function ErrorBanner({
-  isDark,
-  message,
-  onRetry,
-}: {
-  isDark: boolean;
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onRetry}
-      style={({ pressed }) => [
-        homeStyles.errorBanner,
-        {
-          backgroundColor: isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.10)',
-          opacity: pressed ? 0.85 : 1,
-        },
-      ]}
-    >
-      <Ionicons name="alert-circle" size={18} color="#EF4444" />
-      <Text style={{ flex: 1, color: isDark ? '#FECACA' : '#B91C1C', fontSize: 13 }}>
-        {message}
-      </Text>
-      <Text style={{ color: '#EF4444', fontSize: 13, fontWeight: '700' }}>Retry</Text>
-    </Pressable>
-  );
-}
-
-const homeStyles = StyleSheet.create({
-  bellBtn: {
+// Static layout-bearing Pressable styles (no { pressed } function form).
+const BELL_BTN = (border: string, surface: string) =>
+  ({
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  errorBanner: {
-    marginTop: 8,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.35)',
-    flexDirection: 'row',
+    backgroundColor: surface,
+  }) as const;
+
+const AVATAR_BTN = (brand: string) =>
+  ({
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: `${brand}26`,
     alignItems: 'center',
-    gap: 10,
-  },
-});
+    justifyContent: 'center',
+  }) as const;

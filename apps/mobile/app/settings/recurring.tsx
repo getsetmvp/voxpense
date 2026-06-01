@@ -1,154 +1,127 @@
-// Recurring list — pixel-match mockup §7 screen 20 + 21 (edit sheet).
-// Layout: header (back + title + plus) → card rows with avatar icon +
-// name (+ paused chip) + "freq · wallet" subtitle + amount + Next:date.
-// Paused rows render at 60% opacity. Plus-button in header + bottom-right
-// FAB both open the edit sheet.
+// Recurring expense settings — list + inline new/edit sheet.
 
 import { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  View,
-  Text,
-  Pressable,
-  useColorScheme,
-  Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { ScrollView, View, Text, Pressable, Switch } from 'react-native';
+import { Repeat, Plus } from 'lucide-react-native';
 import type { Recurring } from '@voxpense/shared-types';
 
+import { Screen, Header } from '../../src/components/layout';
 import {
-  Screen,
   Button,
   Input,
+  ListItem,
   Sheet,
-  LoadingView,
-  EmptyView,
-} from '../../src/components/glass';
-import { SegmentedControl, Toggle } from '../../src/components/settings';
+  EmptyState,
+  ConfirmDialog,
+  Skeleton,
+  useToast,
+} from '../../src/components/ui';
+import { useTheme } from '../../src/theme/ThemeProvider';
 import {
-  useCategories,
-  useCreateRecurring,
-  useDeleteRecurring,
   useRecurring,
-  useUpdateRecurring,
+  useCategories,
   useWallets,
+  useCreateRecurring,
+  useUpdateRecurring,
+  useDeleteRecurring,
 } from '../../src/queries/insights';
 import { useAuth } from '../../src/store/auth';
-import { formatCurrency, formatDate } from '../../src/lib/format';
-import { shadows } from '../../src/theme/tokens';
+import { formatMoney } from '../../src/lib/money';
 
-type Freq = 'daily' | 'weekly' | 'monthly' | 'yearly';
+type Freq = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
-function freqToRrule(freq: Freq): string {
-  const map: Record<Freq, string> = {
-    daily: 'FREQ=DAILY',
-    weekly: 'FREQ=WEEKLY',
-    monthly: 'FREQ=MONTHLY',
-    yearly: 'FREQ=YEARLY',
-  };
-  return map[freq];
+const FREQ_LABEL: Record<Freq, string> = {
+  DAILY: 'Daily',
+  WEEKLY: 'Weekly',
+  MONTHLY: 'Monthly',
+  YEARLY: 'Yearly',
+};
+
+function rruleFor(freq: Freq): string {
+  return `FREQ=${freq}`;
 }
 
-function rruleToFreq(rrule: string): Freq {
-  if (rrule.includes('DAILY')) return 'daily';
-  if (rrule.includes('WEEKLY')) return 'weekly';
-  if (rrule.includes('YEARLY')) return 'yearly';
-  return 'monthly';
+function freqFromRrule(rrule: string): Freq {
+  const m = rrule.match(/FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)/);
+  return (m?.[1] as Freq) ?? 'MONTHLY';
 }
 
-function freqLabel(freq: Freq): string {
-  const map: Record<Freq, string> = {
-    daily: 'Daily',
-    weekly: 'Weekly',
-    monthly: 'Monthly',
-    yearly: 'Yearly',
-  };
-  return map[freq];
+function fmtDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return iso;
+  }
 }
 
-interface DraftRecurring {
+interface Draft {
   id?: string;
   name: string;
   amount: string;
-  freq: Freq;
-  nextRunAt: string;
+  categoryId?: string;
   walletId: string;
-  categoryId: string | null;
+  freq: Freq;
   active: boolean;
+  nextRunAt: string;
 }
 
-const ROW_PRESSABLE_STYLE = [{ marginBottom: 0 }];
-const HEADER_BTN_STYLE_BASE = {
-  width: 40,
-  height: 40,
-  borderRadius: 20,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
+export default function RecurringSettings() {
+  const { tokens } = useTheme();
+  const toast = useToast();
+  const baseCurrency = useAuth((s) => s.user?.baseCurrency ?? 'INR');
 
-export default function RecurringScreen() {
-  const router = useRouter();
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
-  const user = useAuth((s) => s.user);
-  const currency = user?.baseCurrency ?? 'INR';
-
-  const recurring = useRecurring();
-  const wallets = useWallets();
-  const cats = useCategories();
+  const q = useRecurring();
+  const catsQ = useCategories();
+  const walletsQ = useWallets();
   const create = useCreateRecurring();
   const update = useUpdateRecurring();
   const remove = useDeleteRecurring();
 
-  const [draft, setDraft] = useState<DraftRecurring | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const surf = isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.9)';
-  const cardBg = isDark ? '#0F172A' : '#FFFFFF';
-  const cardBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)';
-  const brand = isDark ? '#60A5FA' : '#3B82F6';
+  const items = q.data ?? [];
+  const cats = catsQ.data ?? [];
+  const wallets = walletsQ.data ?? [];
 
-  const defaultDraft = (): DraftRecurring => {
-    const firstWalletId = wallets.data?.[0]?.id ?? '';
-    return {
+  const openNew = () => {
+    const today = new Date().toISOString();
+    setDraft({
       name: '',
-      amount: '',
-      freq: 'monthly',
-      nextRunAt: new Date().toISOString(),
-      walletId: firstWalletId,
-      categoryId: null,
+      amount: '0',
+      walletId: wallets[0]?.id ?? '',
+      freq: 'MONTHLY',
       active: true,
-    };
+      nextRunAt: today,
+    });
   };
 
-  const openEdit = (r: Recurring) => {
+  const openEdit = (r: Recurring) =>
     setDraft({
       id: r.id,
       name: r.name,
       amount: r.amount,
-      freq: rruleToFreq(r.rrule),
-      nextRunAt: r.nextRunAt,
+      categoryId: r.categoryId ?? undefined,
       walletId: r.walletId,
-      categoryId: r.categoryId,
+      freq: freqFromRrule(r.rrule),
       active: r.active,
+      nextRunAt: r.nextRunAt,
     });
-  };
-
-  const walletName = (id: string): string =>
-    wallets.data?.find((w) => w.id === id)?.name ?? 'Wallet';
 
   const submit = async () => {
     if (!draft) return;
-    const amount = draft.amount.trim();
-    if (!draft.name.trim() || !amount || Number.isNaN(Number(amount))) {
-      Alert.alert('Missing fields', 'Add a name and a numeric amount.');
+    if (!draft.name.trim()) {
+      toast.show('Name required', 'bad');
+      return;
+    }
+    const amt = Number(draft.amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      toast.show('Amount must be positive', 'bad');
       return;
     }
     if (!draft.walletId) {
-      Alert.alert('No wallet', 'Add a wallet first from Settings → Wallets.');
+      toast.show('Pick a wallet', 'bad');
       return;
     }
     try {
@@ -156,30 +129,31 @@ export default function RecurringScreen() {
         await update.mutateAsync({
           id: draft.id,
           body: {
-            name: draft.name,
-            amount,
-            rrule: freqToRrule(draft.freq),
-            nextRunAt: draft.nextRunAt,
+            name: draft.name.trim(),
+            amount: draft.amount,
+            categoryId: draft.categoryId ?? null,
             walletId: draft.walletId,
-            categoryId: draft.categoryId,
+            rrule: rruleFor(draft.freq),
             active: draft.active,
           },
         });
+        toast.show('Recurring saved', 'good');
       } else {
         await create.mutateAsync({
-          name: draft.name,
-          amount,
-          currency,
-          rrule: freqToRrule(draft.freq),
-          nextRunAt: draft.nextRunAt,
+          name: draft.name.trim(),
+          amount: draft.amount,
+          currency: baseCurrency,
+          categoryId: draft.categoryId,
           walletId: draft.walletId,
-          categoryId: draft.categoryId ?? undefined,
+          rrule: rruleFor(draft.freq),
+          nextRunAt: draft.nextRunAt,
           active: draft.active,
         });
+        toast.show('Recurring created', 'good');
       }
       setDraft(null);
     } catch (e) {
-      Alert.alert('Save failed', e instanceof Error ? e.message : 'Try again.');
+      toast.show(e instanceof Error ? e.message : 'Save failed', 'bad');
     }
   };
 
@@ -187,344 +161,355 @@ export default function RecurringScreen() {
     try {
       await update.mutateAsync({ id: r.id, body: { active: !r.active } });
     } catch (e) {
-      Alert.alert('Failed', e instanceof Error ? e.message : 'Try again.');
+      toast.show(e instanceof Error ? e.message : 'Update failed', 'bad');
     }
   };
 
-  const confirmDelete = (id: string) => {
-    Alert.alert('Delete recurring entry?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await remove.mutateAsync(id);
-            setDraft(null);
-          } catch (e) {
-            Alert.alert('Delete failed', e instanceof Error ? e.message : 'Try again.');
-          }
-        },
-      },
-    ]);
-  };
-
-  const iconColor = (r: Recurring): string => {
-    if (!r.active) return '#94A3B8';
-    return cats.data?.find((c) => c.id === r.categoryId)?.color ?? '#3B82F6';
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    try {
+      await remove.mutateAsync(confirmDelete);
+      toast.show('Recurring deleted', 'good');
+      setConfirmDelete(null);
+      setDraft(null);
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Delete failed', 'bad');
+      setConfirmDelete(null);
+    }
   };
 
   return (
     <Screen>
-      {/* Mockup header */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 20,
-          paddingVertical: 12,
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          style={[HEADER_BTN_STYLE_BASE, { backgroundColor: surf }]}
-          accessibilityLabel="Back"
-        >
-          <Ionicons name="arrow-back" size={20} color={ink} />
-        </Pressable>
-        <Text style={{ fontSize: 16, fontWeight: '600', color: ink }}>Recurring</Text>
-        <Pressable
-          onPress={() => setDraft(defaultDraft())}
-          style={[HEADER_BTN_STYLE_BASE, { backgroundColor: brand }]}
-          accessibilityLabel="Add recurring"
-        >
-          <Ionicons name="add" size={22} color="#FFFFFF" />
-        </Pressable>
-      </View>
-
-      {recurring.isLoading ? (
-        <LoadingView />
-      ) : (recurring.data ?? []).length === 0 ? (
-        <EmptyView
-          title="No recurring entries"
-          body="Add subscriptions, rent, and other repeating expenses."
-          action={{ label: 'Add recurring', onPress: () => setDraft(defaultDraft()) }}
-        />
-      ) : (
-        <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 140, gap: 10 }}
-        >
-          {(recurring.data ?? []).map((r) => {
-            const color = iconColor(r);
-            const iconBg = `${color}26`;
-            const freq = rruleToFreq(r.rrule);
-            return (
-              <Pressable
-                key={r.id}
-                onPress={() => openEdit(r)}
-                style={ROW_PRESSABLE_STYLE}
-                accessibilityRole="button"
-              >
-                <View
-                  style={{
-                    padding: 16,
-                    borderRadius: 24,
-                    backgroundColor: cardBg,
-                    borderWidth: 1,
-                    borderColor: cardBorder,
-                    opacity: r.active ? 1 : 0.6,
-                    ...shadows.card,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
+      <Header
+        back
+        title="Recurring"
+        right={
+          <Pressable onPress={openNew} hitSlop={8}>
+            <Plus size={20} color={tokens.brand} />
+          </Pressable>
+        }
+      />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 8 }}>
+        {q.isLoading ? (
+          <View style={{ gap: 8 }}>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} style={{ height: 64, borderRadius: 16 }} />
+            ))}
+          </View>
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<Repeat size={28} color={tokens.brand} />}
+            title="Nothing recurring yet"
+            body="Rent, subscriptions, bills — set them once and they post automatically."
+            action={
+              <Button label="Add recurring" variant="brand" fullWidth={false} onPress={openNew} />
+            }
+          />
+        ) : (
+          <View
+            style={{
+              backgroundColor: tokens.surface,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              overflow: 'hidden',
+            }}
+          >
+            {items.map((r, i) => (
+              <View key={r.id} style={{ opacity: r.active ? 1 : 0.6 }}>
+                <ListItem
+                  leading={
                     <View
                       style={{
-                        flexDirection: 'row',
+                        width: 36,
+                        height: 36,
+                        borderRadius: 12,
+                        backgroundColor: `${tokens.brand}1A`,
                         alignItems: 'center',
-                        gap: 12,
-                        flex: 1,
+                        justifyContent: 'center',
                       }}
                     >
-                      <View
+                      <Repeat size={18} color={tokens.brand} />
+                    </View>
+                  }
+                  title={r.name}
+                  subtitle={`Next: ${fmtDate(r.nextRunAt)} · ${FREQ_LABEL[freqFromRrule(r.rrule)]}`}
+                  trailing={
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text
                         style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 16,
-                          backgroundColor: iconBg,
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          fontSize: 14,
+                          fontWeight: '600',
+                          color: tokens.ink,
+                          fontVariant: ['tabular-nums'],
                         }}
                       >
-                        <Ionicons
-                          name={r.active ? 'repeat' : 'pause-circle-outline'}
-                          size={20}
-                          color={color}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 6,
-                          }}
-                        >
-                          <Text
-                            style={{ fontSize: 14, fontWeight: '600', color: ink }}
-                            numberOfLines={1}
-                          >
-                            {r.name}
-                          </Text>
-                          {!r.active && (
-                            <View
-                              style={{
-                                paddingHorizontal: 8,
-                                paddingVertical: 2,
-                                borderRadius: 999,
-                                backgroundColor: isDark
-                                  ? 'rgba(148,163,184,0.2)'
-                                  : 'rgba(148,163,184,0.18)',
-                              }}
-                            >
-                              <Text
-                                style={{ fontSize: 10, fontWeight: '600', color: meta }}
-                              >
-                                paused
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                          {/* Frequency chip */}
-                          <View
-                            style={{
-                              paddingHorizontal: 7,
-                              paddingVertical: 2,
-                              borderRadius: 999,
-                              backgroundColor: isDark
-                                ? 'rgba(96,165,250,0.18)'
-                                : 'rgba(59,130,246,0.12)',
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: 10,
-                                fontWeight: '600',
-                                color: brand,
-                              }}
-                            >
-                              {freqLabel(freq)}
-                            </Text>
-                          </View>
-                          <Text style={{ fontSize: 11, color: meta }} numberOfLines={1}>
-                            · {walletName(r.walletId)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: ink }}>
-                        {formatCurrency(r.amount, currency)}
+                        {formatMoney(Number(r.amount), r.currency)}
                       </Text>
-                      <Text
-                        style={{ fontSize: 10, color: meta, marginTop: 2 }}
-                        numberOfLines={1}
-                      >
-                        Next: {formatDate(r.nextRunAt, 'd MMM')}
-                      </Text>
+                      <Switch
+                        value={r.active}
+                        onValueChange={() => toggleActive(r)}
+                        trackColor={{ true: tokens.brand, false: tokens.border }}
+                        thumbColor="#FFFFFF"
+                      />
                     </View>
-                  </View>
-                  {/* Active toggle row */}
+                  }
+                  onPress={() => openEdit(r)}
+                />
+                {i < items.length - 1 ? (
                   <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginTop: 12,
-                      paddingTop: 12,
-                      borderTopWidth: 1,
-                      borderTopColor: isDark
-                        ? 'rgba(255,255,255,0.06)'
-                        : 'rgba(15,23,42,0.06)',
-                    }}
-                  >
-                    <Text style={{ fontSize: 12, color: meta }}>
-                      {r.active ? 'Active' : 'Paused'}
-                    </Text>
-                    <Toggle value={r.active} onValueChange={() => toggleActive(r)} />
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      )}
+                    style={{ height: 1, backgroundColor: tokens.border, marginLeft: 14 }}
+                  />
+                ) : null}
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
 
-      {/* Bottom-right FAB — spec-mandated pattern */}
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1000,
-        }}
-      >
-        <View
-          pointerEvents="box-none"
-          style={{ position: 'absolute', right: 24, bottom: 96 }}
-        >
-          <Pressable
-            onPress={() => setDraft(defaultDraft())}
-            style={({ pressed }) => [
-              fabStyles.btn,
-              {
-                backgroundColor: brand,
-                transform: [{ scale: pressed ? 0.94 : 1 }],
-              },
-            ]}
-            accessibilityLabel="Add recurring"
-          >
-            <Ionicons name="add" size={28} color="#FFFFFF" />
-          </Pressable>
-        </View>
-      </View>
-
-      <Sheet open={draft !== null} onClose={() => setDraft(null)}>
+      <Sheet visible={draft !== null} onClose={() => setDraft(null)} heightPct={90}>
         {draft && (
-          <View style={{ gap: 16 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: ink }}>
+          <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: tokens.ink }}>
               {draft.id ? 'Edit recurring' : 'New recurring'}
             </Text>
+
             <Input
               label="Name"
               placeholder="e.g. Rent"
               value={draft.name}
               onChangeText={(name) => setDraft({ ...draft, name })}
+              autoCapitalize="sentences"
             />
+
             <Input
-              label={`Amount (${currency})`}
+              label={`Amount (${baseCurrency})`}
               placeholder="0"
               keyboardType="decimal-pad"
               value={draft.amount}
               onChangeText={(amount) => setDraft({ ...draft, amount })}
             />
+
             <View>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: meta, marginBottom: 6 }}>
-                Repeats
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '500',
+                  color: tokens.muted,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 8,
+                }}
+              >
+                Frequency
               </Text>
-              <SegmentedControl
-                value={draft.freq}
-                onChange={(freq) => setDraft({ ...draft, freq })}
-                options={[
-                  { label: 'Daily', value: 'daily' },
-                  { label: 'Weekly', value: 'weekly' },
-                  { label: 'Monthly', value: 'monthly' },
-                  { label: 'Yearly', value: 'yearly' },
-                ]}
-              />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as Freq[]).map((f) => {
+                  const selected = draft.freq === f;
+                  return (
+                    <Pressable
+                      key={f}
+                      onPress={() => setDraft({ ...draft, freq: f })}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: selected ? tokens.brand : tokens.border,
+                        backgroundColor: selected ? `${tokens.brand}14` : tokens.surface,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: '600',
+                          color: selected ? tokens.brand : tokens.ink,
+                        }}
+                      >
+                        {FREQ_LABEL[f]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-            <Input
-              label="Next run date (YYYY-MM-DD)"
-              placeholder={new Date().toISOString().slice(0, 10)}
-              value={draft.nextRunAt.slice(0, 10)}
-              onChangeText={(d) => {
-                const parsed = new Date(d);
-                if (!Number.isNaN(parsed.getTime())) {
-                  setDraft({ ...draft, nextRunAt: parsed.toISOString() });
-                }
-              }}
-            />
+
+            <View>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '500',
+                  color: tokens.muted,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 8,
+                }}
+              >
+                Wallet
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {wallets.map((w) => {
+                  const selected = draft.walletId === w.id;
+                  return (
+                    <Pressable
+                      key={w.id}
+                      onPress={() => setDraft({ ...draft, walletId: w.id })}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: selected ? tokens.brand : tokens.border,
+                        backgroundColor: selected ? `${tokens.brand}14` : 'transparent',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: '500',
+                          color: selected ? tokens.brand : tokens.ink,
+                        }}
+                      >
+                        {w.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '500',
+                  color: tokens.muted,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 8,
+                }}
+              >
+                Category
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                <Pressable
+                  onPress={() => setDraft({ ...draft, categoryId: undefined })}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: !draft.categoryId ? tokens.brand : tokens.border,
+                    backgroundColor: !draft.categoryId ? `${tokens.brand}14` : 'transparent',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '500',
+                      color: !draft.categoryId ? tokens.brand : tokens.ink,
+                    }}
+                  >
+                    None
+                  </Text>
+                </Pressable>
+                {cats.map((c) => {
+                  const selected = draft.categoryId === c.id;
+                  return (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => setDraft({ ...draft, categoryId: c.id })}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: selected ? tokens.brand : tokens.border,
+                        backgroundColor: selected ? `${tokens.brand}14` : 'transparent',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: c.color,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: '500',
+                          color: selected ? tokens.brand : tokens.ink,
+                        }}
+                      >
+                        {c.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
             <View
               style={{
                 flexDirection: 'row',
-                justifyContent: 'space-between',
                 alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 4,
               }}
             >
-              <Text style={{ fontSize: 14, color: ink }}>Active</Text>
-              <Toggle
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: tokens.ink }}>
+                  Active
+                </Text>
+                <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 2 }}>
+                  Auto-posts on schedule
+                </Text>
+              </View>
+              <Switch
                 value={draft.active}
                 onValueChange={(active) => setDraft({ ...draft, active })}
+                trackColor={{ true: tokens.brand, false: tokens.border }}
+                thumbColor="#FFFFFF"
               />
             </View>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              {draft.id && (
-                <Button variant="danger" onPress={() => confirmDelete(draft.id as string)}>
-                  Delete
-                </Button>
-              )}
-              <View style={{ flex: 1 }} />
-              <Button variant="ghost" onPress={() => setDraft(null)}>
-                Cancel
-              </Button>
-              <Button onPress={submit} loading={create.isPending || update.isPending}>
-                Save
-              </Button>
-            </View>
-          </View>
+
+            <Text style={{ fontSize: 11, color: tokens.muted }}>
+              {draft.id ? 'Next run' : 'First run'}: {fmtDate(draft.nextRunAt)}
+            </Text>
+
+            <View style={{ height: 4 }} />
+            <Button
+              label={draft.id ? 'Save changes' : 'Create recurring'}
+              onPress={submit}
+              loading={create.isPending || update.isPending}
+            />
+            {draft.id ? (
+              <Button
+                label="Delete recurring"
+                variant="danger"
+                onPress={() => setConfirmDelete(draft.id!)}
+              />
+            ) : null}
+            <Button label="Cancel" variant="ghost" onPress={() => setDraft(null)} />
+          </ScrollView>
         )}
       </Sheet>
+
+      <ConfirmDialog
+        visible={confirmDelete !== null}
+        title="Delete recurring?"
+        message="Already-posted expenses stay. Future runs are cancelled."
+        destructive
+        confirmLabel="Delete"
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={doDelete}
+      />
     </Screen>
   );
 }
-
-const fabStyles = StyleSheet.create({
-  btn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.fab,
-  },
-});

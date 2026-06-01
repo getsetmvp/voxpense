@@ -1,46 +1,79 @@
-// Privacy & data screen — export request, delete account confirmation.
+// Privacy settings — data ownership statement, export expenses to JSON via
+// Share, delete account confirmation, terms + privacy links.
 
 import { useState } from 'react';
-import { ScrollView, View, Text, Linking, Alert, useColorScheme } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ScrollView, View, Text, Linking, Share, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Download, FileText, Shield, Trash2 } from 'lucide-react-native';
 
-import { Screen, Card, Button, Sheet } from '../../src/components/glass';
-import { NavRow, ScreenHeader, SectionGroup } from '../../src/components/settings';
-import { users } from '../../src/lib/endpoints';
+import { Screen } from '../../src/components/layout/Screen';
+import { Header } from '../../src/components/layout/Header';
+import { SectionHeader } from '../../src/components/layout/SectionHeader';
+import { Button } from '../../src/components/ui/Button';
+import { Card } from '../../src/components/ui/Card';
+import { ListItem } from '../../src/components/ui/ListItem';
+import { ConfirmDialog } from '../../src/components/ui/ConfirmDialog';
+import { useToast } from '../../src/components/ui/Toast';
+import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAuth } from '../../src/store/auth';
+import { expenses, users } from '../../src/lib/endpoints';
 
-export default function PrivacyScreen() {
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
+const TERMS_URL = 'https://voxpense.app/terms';
+const PRIVACY_URL = 'https://voxpense.app/privacy';
+
+export default function PrivacySettings() {
+  const { tokens } = useTheme();
+  const toast = useToast();
+  const router = useRouter();
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
 
-  const [showDelete, setShowDelete] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const iconColor = isDark ? '#CBD5E1' : '#334155';
-
-  const requestExport = async () => {
-    const subject = encodeURIComponent('VoxPense data export request');
-    const body = encodeURIComponent(
-      `Hi,\n\nPlease export all data for my account (${user?.email ?? 'unknown'}).\n\nThanks.`,
-    );
-    const url = `mailto:yash.g@pei.group?subject=${subject}&body=${body}`;
-    const ok = await Linking.canOpenURL(url);
-    if (ok) await Linking.openURL(url);
-    else Alert.alert('No mail app', 'Email yash.g@pei.group with your request.');
+  const onExport = async () => {
+    setExporting(true);
+    try {
+      const result = await expenses.list({ limit: 500 });
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        userEmail: user?.email ?? null,
+        count: result.data.length,
+        expenses: result.data,
+      };
+      const json = JSON.stringify(payload, null, 2);
+      await Share.share({
+        message: json,
+        title: 'VoxPense expenses export',
+      });
+      toast.show(`Exported ${result.data.length} expenses`, 'good');
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Export failed', 'bad');
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const confirmDelete = async () => {
+  const openUrl = async (url: string) => {
+    try {
+      const ok = await Linking.canOpenURL(url);
+      if (ok) await Linking.openURL(url);
+      else toast.show('Cannot open link', 'bad');
+    } catch {
+      toast.show('Cannot open link', 'bad');
+    }
+  };
+
+  const onDelete = async () => {
     setDeleting(true);
     try {
       await users.remove();
       await logout();
-      setShowDelete(false);
+      setConfirmDelete(false);
+      router.replace('/(onboarding)/welcome' as never);
     } catch (e) {
-      Alert.alert('Delete failed', e instanceof Error ? e.message : 'Try again.');
+      toast.show(e instanceof Error ? e.message : 'Delete failed', 'bad');
     } finally {
       setDeleting(false);
     }
@@ -48,125 +81,111 @@ export default function PrivacyScreen() {
 
   return (
     <Screen>
-      <ScreenHeader title="Privacy & data" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+      <Header back title="Privacy & data" />
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 12 }}
+      >
+        {/* Statement */}
         <Card>
-          <Text style={{ fontSize: 13, color: ink, lineHeight: 20 }}>
-            Your data is stored on PEI Group's voxpense tenant. Voice transcripts and
-            receipt photos are sent to AI for parsing. Audio files are only retained
-            locally if you enable "Keep voice audio".
-          </Text>
-        </Card>
-
-        <View style={{ height: 20 }} />
-
-        <SectionGroup title="Your data">
-          <NavRow
-            icon={<Ionicons name="download-outline" size={20} color={iconColor} />}
-            label="Export data"
-            hint="Email us — we'll send a JSON dump"
-            onPress={requestExport}
-            isLast
-          />
-        </SectionGroup>
-
-        <SectionGroup title="Account">
-          <NavRow
-            icon={<Ionicons name="log-out-outline" size={20} color={iconColor} />}
-            label="Sign out"
-            onPress={() => {
-              Alert.alert('Sign out?', 'You can sign back in anytime.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Sign out', style: 'destructive', onPress: () => logout() },
-              ]);
-            }}
-          />
-          <NavRow
-            icon={<Ionicons name="trash-outline" size={20} color="#EF4444" />}
-            label="Delete account"
-            hint="Permanent. Removes all expenses, wallets, categories."
-            destructive
-            onPress={() => setShowDelete(true)}
-            isLast
-          />
-        </SectionGroup>
-
-        <Text
-          style={{
-            fontSize: 11,
-            color: meta,
-            textAlign: 'center',
-            marginTop: 12,
-          }}
-        >
-          Privacy questions? Email yash.g@pei.group
-        </Text>
-      </ScrollView>
-
-      <Sheet open={showDelete} onClose={() => setShowDelete(false)}>
-        <View style={{ gap: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
             <View
               style={{
                 width: 36,
                 height: 36,
-                borderRadius: 18,
-                backgroundColor: isDark
-                  ? 'rgba(248,113,113,0.2)'
-                  : 'rgba(239,68,68,0.12)',
+                borderRadius: 10,
+                backgroundColor: `${tokens.brand}1A`,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Ionicons name="warning" size={20} color="#EF4444" />
+              <Shield size={18} color={tokens.brand} />
             </View>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: ink }}>
-              Delete account?
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{ fontSize: 15, fontWeight: '700', color: tokens.ink }}
+              >
+                Your data is yours
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: tokens.muted,
+                  marginTop: 4,
+                  lineHeight: 20,
+                }}
+              >
+                VoxPense stores your expenses on our server tied to your account.
+                Voice transcripts and receipt photos are sent to AI for parsing
+                only. Audio is only retained locally if you enable "Keep voice
+                audio" in Preferences.
+              </Text>
+            </View>
           </View>
+        </Card>
+
+        {/* Data actions */}
+        <SectionHeader>Your data</SectionHeader>
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <ListItem
+            leading={<Download size={18} color={tokens.muted} />}
+            title={exporting ? 'Exporting…' : 'Export data'}
+            subtitle="Share recent expenses as JSON"
+            onPress={exporting ? undefined : onExport}
+          />
+        </Card>
+
+        {/* Legal */}
+        <SectionHeader>Legal</SectionHeader>
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <ListItem
+            leading={<FileText size={18} color={tokens.muted} />}
+            title="Privacy policy"
+            subtitle={PRIVACY_URL}
+            onPress={() => openUrl(PRIVACY_URL)}
+          />
           <View
-            style={{
-              padding: 12,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: isDark
-                ? 'rgba(248,113,113,0.3)'
-                : 'rgba(239,68,68,0.25)',
-              backgroundColor: isDark
-                ? 'rgba(248,113,113,0.08)'
-                : 'rgba(239,68,68,0.05)',
-            }}
-          >
-            <Text style={{ fontSize: 13, color: ink, lineHeight: 20 }}>
-              This will permanently erase your account, all expenses, wallets,
-              categories, budgets, recurring entries, and reminders.{'\n'}
-              <Text style={{ fontWeight: '700' }}>This cannot be undone.</Text>
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-            <View style={{ flex: 1 }}>
-              <Button
-                variant="ghost"
-                fullWidth
-                onPress={() => setShowDelete(false)}
-                disabled={deleting}
-              >
-                Cancel
-              </Button>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button
-                variant="danger"
-                fullWidth
-                onPress={confirmDelete}
-                loading={deleting}
-              >
-                Delete forever
-              </Button>
-            </View>
-          </View>
+            style={{ height: 1, backgroundColor: tokens.border, marginLeft: 14 }}
+          />
+          <ListItem
+            leading={<FileText size={18} color={tokens.muted} />}
+            title="Terms of service"
+            subtitle={TERMS_URL}
+            onPress={() => openUrl(TERMS_URL)}
+          />
+        </Card>
+
+        {/* Danger zone */}
+        <SectionHeader>Danger zone</SectionHeader>
+        <View style={{ paddingHorizontal: 0 }}>
+          <Button
+            label="Delete account"
+            variant="danger"
+            icon={<Trash2 size={16} color={tokens.bad} />}
+            onPress={() => setConfirmDelete(true)}
+          />
         </View>
-      </Sheet>
+        <Text
+          style={{
+            fontSize: 11,
+            color: tokens.muted,
+            textAlign: 'center',
+            marginTop: 8,
+          }}
+        >
+          {Platform.OS === 'ios' ? 'iOS' : 'Android'} · Privacy questions?
+          yash.g@pei.group
+        </Text>
+      </ScrollView>
+
+      <ConfirmDialog
+        visible={confirmDelete}
+        title="Delete account?"
+        message="This will permanently erase your account and all data. This cannot be undone."
+        destructive
+        confirmLabel={deleting ? 'Deleting…' : 'Delete forever'}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={onDelete}
+      />
     </Screen>
   );
 }

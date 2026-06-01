@@ -1,337 +1,260 @@
-// Screen 10. VoiceCaptureModal — pixel-match rebuild of mockup screens 10a/10b/10c.
-//
-// Layout:
-//   - Edge-to-edge modal (no safe-area top inset, dark scrim covers the gradient)
-//   - Top-right close (X) button
-//   - Centered ring (glass-strong) containing brand mic disc
-//   - Phase captions ("Tap to start" / "Listening..." / "AI is parsing...")
-//   - Bottom-area glass card: TIP (idle) → TRANSCRIPT live (listening) → checklist (processing)
-//
-// Permission denial + parse error states inline with retry.
+// Voice capture (mockup 08-09). Dark fullscreen sheet, big mic glyph,
+// animated waveform bars (static random), transcript text, Done/Retry/Cancel.
 
-import { useCallback, useState } from 'react';
-import {
-  Linking,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { Check, Keyboard, Mic, RotateCcw, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-
-import { Screen, Button } from '../../src/components/glass';
-import { MicButton } from '../../src/components/capture';
+import { Screen } from '../../src/components/layout/Screen';
+import { useTheme } from '../../src/theme/ThemeProvider';
+import { useToast } from '../../src/components/ui/Toast';
 import { useVoiceTranscript } from '../../src/hooks/capture/useVoiceTranscript';
-import { ai, type ParsedExpense } from '../../src/lib/endpoints';
-import { ApiError } from '../../src/lib/api';
+import { ai } from '../../src/lib/endpoints';
 
-type Phase = 'recording' | 'parsing' | 'parse-error';
-
-export default function VoiceCaptureScreen() {
+export default function VoiceCapture() {
+  const { tokens } = useTheme();
   const router = useRouter();
-
+  const toast = useToast();
   const { status, transcript, errorMessage, start, stop, reset } =
     useVoiceTranscript({ lang: 'en-IN' });
+  const [parsing, setParsing] = useState(false);
 
-  const [phase, setPhase] = useState<Phase>('recording');
-  const [parseError, setParseError] = useState<string | null>(null);
-  const [lastTranscript, setLastTranscript] = useState('');
-
-  const isProcessing = phase === 'parsing';
-  const showDenied = status === 'denied';
-  const showError = status === 'error';
-
-  const handleParse = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) {
-        setPhase('parse-error');
-        setParseError("Didn't catch that. Try again?");
-        return;
-      }
-      setPhase('parsing');
-      setParseError(null);
-      setLastTranscript(trimmed);
+  useEffect(() => {
+    void start();
+    return () => {
       try {
-        const parsed: ParsedExpense = await ai.parseExpense({
-          transcript: trimmed,
-          locale: 'en-IN',
-        });
-        const payload = JSON.stringify({
-          source: 'voice' as const,
-          transcript: trimmed,
-          parsed,
-        });
-        router.replace({
-          pathname: '/(capture)/confirm',
-          params: { source: 'voice', payload },
-        });
-      } catch (err) {
-        const msg =
-          err instanceof ApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : 'Network error. Try again.';
-        setParseError(msg);
-        setPhase('parse-error');
+        stop();
+      } catch {
+        // ignore
       }
-    },
-    [router],
-  );
-
-  const handleMicPress = useCallback(async () => {
-    if (isProcessing) return;
-    if (status === 'listening') {
-      stop();
-      const finalText = transcript.trim();
-      // Allow the recognizer a beat to emit its final result.
-      setTimeout(() => {
-        handleParse(finalText);
-      }, 150);
-      return;
-    }
-    setPhase('recording');
-    setParseError(null);
-    await start();
-  }, [status, transcript, stop, start, handleParse, isProcessing]);
-
-  const handleRetry = useCallback(() => {
-    if (lastTranscript) {
-      void handleParse(lastTranscript);
-      return;
-    }
-    reset();
-    setParseError(null);
-    setPhase('recording');
-  }, [lastTranscript, handleParse, reset]);
-
-  const openSettings = useCallback(() => {
-    void Linking.openSettings();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleClose = useCallback(() => {
+  const isListening = status === 'listening' || status === 'requesting';
+  const isError = status === 'error' || status === 'denied';
+
+  const onDone = async () => {
     stop();
-    router.dismissAll();
-    router.replace('/(tabs)/home');
-  }, [router, stop]);
+    const text = transcript.trim();
+    if (!text) {
+      toast.show("Didn't catch that — try again", 'bad');
+      return;
+    }
+    setParsing(true);
+    try {
+      const parsed = await ai.parseExpense({
+        transcript: text,
+        locale: 'en-IN',
+      });
+      router.replace({
+        pathname: '/(capture)/confirm',
+        params: {
+          source: 'voice',
+          transcript: text,
+          amount: parsed.amount ?? '',
+          currency: parsed.currency ?? '',
+          merchant: parsed.merchant ?? '',
+          note: parsed.note ?? '',
+          occurredAt: parsed.occurredAt ?? '',
+          categoryHint: parsed.category_hint ?? '',
+        },
+      });
+    } catch (err) {
+      toast.show(
+        err instanceof Error ? err.message : 'AI parse failed',
+        'bad',
+      );
+    } finally {
+      setParsing(false);
+    }
+  };
 
-  const micState: 'idle' | 'listening' | 'processing' = isProcessing
-    ? 'processing'
-    : status === 'listening'
-      ? 'listening'
-      : 'idle';
+  const onCancel = () => {
+    stop();
+    router.back();
+  };
 
-  const captionPrimary = isProcessing
-    ? 'AI is parsing...'
-    : status === 'listening'
-      ? 'Listening...'
-      : status === 'requesting'
-        ? 'Starting mic...'
-        : 'Tap to start';
+  const onRetry = () => {
+    stop();
+    reset();
+    void start();
+  };
 
-  const captionSecondary = isProcessing
-    ? 'extracting amount, category, merchant'
-    : status === 'listening'
-      ? 'tap mic to stop'
-      : 'or hold for push-to-talk';
+  const onKeyboard = () => {
+    stop();
+    router.replace('/(capture)/manual');
+  };
+
+  // Static random waveform bars (visual only).
+  const bars = useMemo(
+    () => Array.from({ length: 16 }, () => Math.floor(Math.random() * 32) + 6),
+    [],
+  );
+
+  const inkInverse = tokens.inkInverse;
 
   return (
-    <Screen safe={false}>
-      {/* Dark scrim over the gradient bg (matches mockup bg-black/60 + backdrop-blur). */}
+    <Screen edges={['top']} style={{ backgroundColor: tokens.ink }}>
       <View
-        pointerEvents="none"
-        className="absolute top-0 left-0 right-0 bottom-0 bg-black/60"
-      />
-
-      {/* Top-right close X (no back button on voice modal — matches mockup 10a). */}
-      <View className="pt-14 px-5 flex-row justify-end">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          onPress={handleClose}
-          style={STYLES.closeBtn}
+        style={{
+          height: 56,
+          paddingHorizontal: 16,
+          paddingTop: 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Pressable onPress={onCancel} style={CIRCLE_36}>
+          <X size={20} color={inkInverse} />
+        </Pressable>
+        <View
+          style={{
+            backgroundColor: `${tokens.bad}33`,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+          }}
         >
-          <Ionicons name="close" size={22} color="#FFFFFF" />
+          <View
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 999,
+              backgroundColor: tokens.bad,
+            }}
+          />
+          <Text style={{ color: tokens.bad, fontSize: 12, fontWeight: '500' }}>
+            {isListening ? 'Recording' : isError ? 'Error' : 'Idle'}
+          </Text>
+        </View>
+        <Pressable onPress={onKeyboard} style={CIRCLE_36}>
+          <Keyboard size={20} color={inkInverse} />
         </Pressable>
       </View>
 
-      <View className="flex-1 items-center pt-6 px-6">
-        {showDenied ? (
-          <PermissionDeniedView
-            message={errorMessage ?? 'Mic permission required'}
-            onOpenSettings={openSettings}
-            onRetry={() => {
-              reset();
-              void start();
-            }}
-          />
-        ) : (
-          <>
-            <MicButton
-              state={micState}
-              onPress={handleMicPress}
-              disabled={isProcessing}
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 32,
+        }}
+      >
+        <View
+          style={{
+            width: 160,
+            height: 160,
+            borderRadius: 999,
+            backgroundColor: tokens.brand,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Mic size={64} color="#FFFFFF" />
+        </View>
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 3,
+            alignItems: 'flex-end',
+            marginTop: 40,
+            height: 36,
+          }}
+        >
+          {bars.map((h, i) => (
+            <View
+              key={i}
+              style={{
+                width: 3,
+                height: h,
+                backgroundColor: tokens.brand,
+                borderRadius: 2,
+              }}
             />
+          ))}
+        </View>
+        <Text
+          style={{
+            color: inkInverse,
+            fontSize: 16,
+            fontWeight: '600',
+            textAlign: 'center',
+            marginTop: 32,
+            maxWidth: 280,
+          }}
+        >
+          {transcript ||
+            (isError
+              ? errorMessage ?? 'Could not hear that — tap retry'
+              : 'Listening…')}
+        </Text>
+        <Text style={{ color: tokens.muted, fontSize: 12, marginTop: 12 }}>
+          Tap done to save · retry to start over
+        </Text>
+      </View>
 
-            <Text className="text-white text-xl font-semibold mt-7">
-              {captionPrimary}
-            </Text>
-            <Text className="text-white/70 text-[13px] mt-1">
-              {captionSecondary}
-            </Text>
-
-            <View className="mt-10 w-full">
-              {micState === 'listening' ? (
-                <TranscriptCard text={transcript} />
-              ) : micState === 'processing' ? (
-                <ProcessingChecklist />
-              ) : (
-                <TipCard />
-              )}
-            </View>
-
-            {phase === 'parse-error' && (
-              <View className="mt-4 w-full items-center" style={{ gap: 10 }}>
-                <Text className="text-[#FCA5A5] text-[13px] text-center">
-                  {parseError ?? 'Something went wrong.'}
-                </Text>
-                <View className="flex-row" style={{ gap: 10 }}>
-                  <Button variant="ghost" onPress={() => router.back()}>Cancel</Button>
-                  <Button onPress={handleRetry}>Retry</Button>
-                </View>
-              </View>
-            )}
-
-            {showError && phase !== 'parse-error' && (
-              <View className="mt-4 w-full items-center" style={{ gap: 10 }}>
-                <Text className="text-[#FCA5A5] text-[13px] text-center">
-                  {errorMessage ?? 'Could not hear you. Try again.'}
-                </Text>
-                <Button onPress={() => { reset(); void start(); }}>Try again</Button>
-              </View>
-            )}
-          </>
-        )}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          paddingBottom: 32,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+        }}
+      >
+        <Pressable onPress={onRetry} style={SIDE_BTN('rgba(255,255,255,0.1)')}>
+          <RotateCcw size={20} color={inkInverse} />
+        </Pressable>
+        <Pressable
+          onPress={onDone}
+          disabled={parsing}
+          style={{
+            paddingHorizontal: 24,
+            height: 48,
+            borderRadius: 16,
+            backgroundColor: inkInverse,
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'row',
+            gap: 8,
+            opacity: parsing ? 0.7 : 1,
+          }}
+        >
+          {parsing ? (
+            <ActivityIndicator color={tokens.ink} />
+          ) : (
+            <Check size={18} color={tokens.ink} />
+          )}
+          <Text style={{ color: tokens.ink, fontWeight: '700' }}>Done</Text>
+        </Pressable>
+        <Pressable onPress={onCancel} style={SIDE_BTN(`${tokens.bad}33`)}>
+          <X size={20} color={tokens.bad} />
+        </Pressable>
       </View>
     </Screen>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-const STYLES = {
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  glassCard: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderColor: 'rgba(255,255,255,0.20)',
-    borderWidth: 1,
-    borderRadius: 20,
-  },
+// Static layout-bearing Pressable styles.
+const CIRCLE_36 = {
+  width: 36,
+  height: 36,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
 };
 
-function TipCard() {
-  return (
-    <View
-      className="self-center px-4 py-3"
-      style={[STYLES.glassCard, { maxWidth: 300 }]}
-    >
-      <Text className="text-white/80 text-[11px] font-semibold tracking-widest mb-1">
-        TIP
-      </Text>
-      <Text className="text-white text-[13px] leading-[18px]">
-        Speak naturally. AI parses amount, merchant, category.
-      </Text>
-    </View>
-  );
-}
-
-function TranscriptCard({ text }: { text: string }) {
-  return (
-    <View className="px-5 py-4" style={STYLES.glassCard}>
-      <Text className="text-white/80 text-[11px] font-semibold tracking-widest mb-2">
-        TRANSCRIPT
-      </Text>
-      <Text className="text-white text-[14px] leading-relaxed">
-        {text || '…'}
-        <Text className="text-white/80">{' ▍'}</Text>
-      </Text>
-    </View>
-  );
-}
-
-function ProcessingChecklist() {
-  return (
-    <View className="px-5 py-4" style={[STYLES.glassCard, { gap: 8 }]}>
-      <ChecklistRow icon="checkmark" color="#10B981" label="Amount detected" />
-      <ChecklistRow icon="checkmark" color="#10B981" label="Merchant identified" />
-      <ChecklistRow icon="sync" color="#FBBF24" label="Categorizing" spinning />
-    </View>
-  );
-}
-
-function ChecklistRow({
-  icon,
-  color,
-  label,
-  spinning,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  label: string;
-  spinning?: boolean;
-}) {
-  return (
-    <View className="flex-row items-center" style={{ gap: 8 }}>
-      <Ionicons name={icon} size={16} color={color} />
-      <Text
-        className={spinning ? 'text-white/80 text-[13px]' : 'text-white text-[13px]'}
-      >
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-interface PermissionDeniedViewProps {
-  message: string;
-  onOpenSettings: () => void;
-  onRetry: () => void;
-}
-
-function PermissionDeniedView({ message, onOpenSettings, onRetry }: PermissionDeniedViewProps) {
-  return (
-    <View className="flex-1 items-center justify-center px-6" style={{ gap: 16 }}>
-      <View
-        className="items-center justify-center"
-        style={{
-          width: 96,
-          height: 96,
-          borderRadius: 48,
-          backgroundColor: 'rgba(239,68,68,0.18)',
-        }}
-      >
-        <Ionicons name="mic-off" size={44} color="#FCA5A5" />
-      </View>
-      <Text className="text-white text-xl font-bold text-center">
-        Mic permission required
-      </Text>
-      <Text className="text-white/75 text-sm text-center leading-5">
-        {message}
-        {'\n'}
-        Grant microphone + speech recognition access to dictate expenses.
-      </Text>
-      <View className="flex-row mt-2" style={{ gap: 12 }}>
-        <Button variant="ghost" onPress={onRetry}>Try again</Button>
-        <Button onPress={onOpenSettings}>Open settings</Button>
-      </View>
-    </View>
-  );
-}
+const SIDE_BTN = (bg: string) =>
+  ({
+    width: 48,
+    height: 48,
+    borderRadius: 999,
+    backgroundColor: bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  }) as const;

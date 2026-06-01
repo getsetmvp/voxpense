@@ -1,540 +1,392 @@
-// Screen 11 + 13. AI Confirm — pixel-match rebuild matching mockup 11 (voice)
-// and 13 (photo) flavors.
-//
-// Layout:
-//   - Header: back arrow + "Confirm expense" + close X
-//   - Hero glass card: DETECTED AMOUNT label + huge ₹AMOUNT + category chip +
-//     confidence chip (when parse-meta supplies it)
-//   - Section rows: merchant edit, note edit, category picker, wallet picker,
-//     date row (Now), and (voice-only) "From your voice" transcript echo
-//   - Footer: Cancel (ghost) + Save expense (primary 2x flex)
-//
-// Save: POST /expenses → invalidate ['expenses'] → dismissAll + replace home.
+// Parse review (mockup 09 + 11). Receives parsed payload as route params,
+// lets user edit fields before saving via useCreateExpense().
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  TextInput,
   View,
-  useColorScheme,
+  Text,
+  Pressable,
+  TextInput,
+  ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Calendar, Check, Store, StickyNote } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-import { Screen, Card, Button } from '../../src/components/glass';
-import { CaptureHeader, PickerSheet, type PickerItem } from '../../src/components/capture';
-import {
-  ai,
-  categories as categoriesApi,
-  wallets as walletsApi,
-  expenses as expensesApi,
-  type ParsedExpense,
-  type ParsedReceipt,
-} from '../../src/lib/endpoints';
-import { ApiError } from '../../src/lib/api';
-import { qk } from '../../src/query/client';
+import { Screen } from '../../src/components/layout/Screen';
+import { Header } from '../../src/components/layout/Header';
+import { SectionHeader } from '../../src/components/layout/SectionHeader';
+import { Amount } from '../../src/components/ui/Amount';
+import { Button } from '../../src/components/ui/Button';
+import { Chip } from '../../src/components/ui/Chip';
+import { useToast } from '../../src/components/ui/Toast';
+import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAuth } from '../../src/store/auth';
-import { formatCurrency, formatRelativeDate } from '../../src/lib/format';
+import { useGroups, useWallets } from '../../src/queries/insights';
+import { useCreateExpense } from '../../src/queries/expenses';
+import { formatRelativeDate } from '../../src/lib/format';
 
-type CaptureSource = 'voice' | 'photo';
-
-interface ConfirmPayload {
-  source: CaptureSource;
-  transcript?: string;
-  parsed: ParsedExpense | ParsedReceipt;
-}
-
-function safeParsePayload(raw: string | null | undefined): ConfirmPayload | null {
-  if (!raw) return null;
-  try {
-    const obj = JSON.parse(raw) as ConfirmPayload;
-    if (!obj || typeof obj !== 'object' || !obj.parsed) return null;
-    return obj;
-  } catch {
-    return null;
-  }
-}
+type SourceParam = 'voice' | 'photo' | 'manual' | 'recurring';
 
 export default function ConfirmScreen() {
+  const { tokens } = useTheme();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
-  const user = useAuth((s) => s.user);
-  const baseCurrency = user?.baseCurrency ?? 'INR';
+  const toast = useToast();
+  const baseCurrency = useAuth((s) => s.user?.baseCurrency ?? 'INR');
 
-  const params = useLocalSearchParams<{ source?: string; payload?: string }>();
-  const payload = useMemo(() => safeParsePayload(params.payload ?? null), [params.payload]);
+  const params = useLocalSearchParams<{
+    source?: string;
+    transcript?: string;
+    amount?: string;
+    currency?: string;
+    merchant?: string;
+    note?: string;
+    occurredAt?: string;
+    categoryHint?: string;
+  }>();
 
-  const parsed = payload?.parsed ?? null;
-  const source: CaptureSource = (payload?.source ?? (params.source as CaptureSource) ?? 'voice') as CaptureSource;
+  const source: SourceParam = ((params.source as SourceParam) ?? 'voice');
 
-  const [amount, setAmount] = useState<string>(parsed?.amount ?? '');
-  const [currency, setCurrency] = useState<string>(parsed?.currency ?? baseCurrency);
-  const [merchant, setMerchant] = useState<string>(parsed?.merchant ?? '');
-  const [note, setNote] = useState<string>(parsed?.note ?? '');
+  const groupsQ = useGroups();
+  const walletsQ = useWallets();
+  const groups = groupsQ.data ?? [];
+  const wallets = walletsQ.data ?? [];
+
+  const [amount, setAmount] = useState<string>(params.amount ?? '');
+  const [currency] = useState<string>(params.currency || baseCurrency);
+  const [merchant, setMerchant] = useState<string>(params.merchant ?? '');
+  const [note, setNote] = useState<string>(params.note ?? '');
   const [occurredAt, setOccurredAt] = useState<string>(
-    parsed?.occurredAt ?? new Date().toISOString(),
+    params.occurredAt && params.occurredAt.length > 0
+      ? params.occurredAt
+      : new Date().toISOString(),
   );
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [groupId, setGroupId] = useState<string | null>(null);
   const [walletId, setWalletId] = useState<string | null>(null);
 
-  const [showCategory, setShowCategory] = useState(false);
-  const [showWallet, setShowWallet] = useState(false);
-  const [aiBusy, setAiBusy] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const initialWalletId = useMemo(() => {
+    if (walletId) return walletId;
+    return wallets[0]?.id ?? null;
+  }, [walletId, wallets]);
 
-  const categoriesQ = useQuery({ queryKey: qk.categories, queryFn: () => categoriesApi.list() });
-  const walletsQ = useQuery({ queryKey: qk.wallets, queryFn: () => walletsApi.list() });
+  const create = useCreateExpense();
 
-  const categoryItems: PickerItem[] = useMemo(
-    () => (categoriesQ.data ?? []).map((c) => ({ id: c.id, label: c.name })),
-    [categoriesQ.data],
-  );
-  const walletItems: PickerItem[] = useMemo(
-    () =>
-      (walletsQ.data ?? []).map((w) => ({
-        id: w.id,
-        label: w.name,
-        sublabel: `${w.kind.toUpperCase()} · ${w.currency}`,
-      })),
-    [walletsQ.data],
-  );
-
-  const selectedCategory = useMemo(
-    () => categoryItems.find((c) => c.id === categoryId) ?? null,
-    [categoryItems, categoryId],
-  );
-  const selectedWallet = useMemo(
-    () => walletItems.find((w) => w.id === walletId) ?? null,
-    [walletItems, walletId],
-  );
-
-  // Auto-suggest category on first arrival.
-  useEffect(() => {
-    let cancelled = false;
-    async function suggest() {
-      if (categoryId) return;
-      if (!parsed) return;
-      if (!amount) return;
-      if ((categoriesQ.data?.length ?? 0) === 0) return;
-      setAiBusy(true);
-      try {
-        const res = await ai.categorize({
-          amount,
-          merchant: merchant || undefined,
-          note: note || undefined,
-        });
-        if (!cancelled && res.categoryId) setCategoryId(res.categoryId);
-      } catch {
-        // Soft-fail.
-      } finally {
-        if (!cancelled) setAiBusy(false);
-      }
+  const onSave = async () => {
+    const num = Number(amount);
+    if (!amount || !Number.isFinite(num) || num <= 0) {
+      toast.show('Enter an amount', 'bad');
+      return;
     }
-    void suggest();
-    return () => {
-      cancelled = true;
-    };
-    // Only re-run on first arrival of parsed/categories.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsed, categoriesQ.data?.length]);
-
-  // Default wallet to first available if user hasn't picked one.
-  useEffect(() => {
-    if (!walletId && walletsQ.data && walletsQ.data.length > 0) {
-      setWalletId(walletsQ.data[0]!.id);
+    const wId = walletId ?? initialWalletId;
+    if (!wId) {
+      toast.show('Add a wallet in settings first', 'bad');
+      return;
     }
-  }, [walletId, walletsQ.data]);
-
-  const createMutation = useMutation({
-    mutationFn: () => {
-      if (!amount || Number(amount) <= 0) throw new Error('Add an amount.');
-      if (!walletId) throw new Error('Pick a wallet.');
-      if (!categoryId) throw new Error('Pick a category.');
-      return expensesApi.create({
-        amount,
+    try {
+      await create.mutateAsync({
+        amount: num.toFixed(2),
         currency,
-        merchant: merchant || undefined,
-        note: note || undefined,
+        merchant: merchant.trim() || undefined,
+        note: note.trim() || undefined,
         occurredAt,
-        categoryId,
-        walletId,
+        groupId: groupId ?? undefined,
+        walletId: wId,
         source,
-        parseMeta: parsed
-          ? {
-              transcript: payload?.transcript,
-              parsed_amount: parsed.amount,
-              parsed_merchant: parsed.merchant,
-              parsed_category_hint: parsed.category_hint,
-            }
-          : undefined,
+        parseMeta:
+          params.transcript || params.categoryHint
+            ? {
+                transcript: params.transcript,
+                categoryHint: params.categoryHint,
+              }
+            : undefined,
       });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      router.dismissAll();
+      toast.show('Saved', 'good');
       router.replace('/(tabs)/home');
-    },
-    onError: (err) => {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Could not save. Try again.';
-      setFormError(msg);
-    },
-  });
-
-  const handleSave = useCallback(() => {
-    setFormError(null);
-    if (!amount || Number(amount) <= 0) {
-      setFormError('Add an amount before saving.');
-      return;
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Save failed', 'bad');
     }
-    if (!categoryId) {
-      setFormError('Pick a category.');
-      return;
-    }
-    if (!walletId) {
-      setFormError('Pick a wallet.');
-      return;
-    }
-    createMutation.mutate();
-  }, [amount, walletId, categoryId, createMutation]);
+  };
 
-  // Helpers
-  const inkPrimary = isDark ? '#F8FAFC' : '#0F172A';
-  const inkSecondary = isDark ? '#94A3B8' : '#64748B';
-  const inkPlaceholder = isDark ? '#64748B' : '#94A3B8';
-  const rowBg = isDark ? '#1F2937' : '#F1F4F8';
-  const glassBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.65)';
-  const glassBorder = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.06)';
-
-  if (!payload || !parsed) {
-    return (
-      <Screen>
-        <CaptureHeader title="Confirm" />
-        <View className="flex-1 items-center justify-center p-6" style={{ gap: 12 }}>
-          <Ionicons name="alert-circle-outline" size={48} color={isDark ? '#FCA5A5' : '#EF4444'} />
-          <Text className="text-base font-bold" style={{ color: inkPrimary }}>
-            No parsed expense found
-          </Text>
-          <Text className="text-[13px] text-center" style={{ color: inkSecondary }}>
-            The previous step did not pass an expense. Start over to try again.
-          </Text>
-          <Button onPress={() => router.replace('/(tabs)/home')}>Back to home</Button>
-        </View>
-      </Screen>
-    );
-  }
-
-  const formattedAmount = formatCurrency(Number(amount) || 0, currency);
+  const amountNum = Number(amount) || 0;
 
   return (
-    <Screen>
-      <CaptureHeader title="Confirm expense" />
+    <Screen edges={['top']}>
+      <Header title="Review" />
 
-      <View className="flex-1 px-5">
-        {/* Hero glass card */}
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: 120,
+          paddingTop: 8,
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Hero: detected amount */}
         <View
-          className="p-6 mt-1 overflow-hidden"
           style={{
-            borderRadius: 28,
-            backgroundColor: glassBg,
+            alignItems: 'center',
+            paddingVertical: 24,
+            borderRadius: 24,
+            backgroundColor: tokens.surface,
             borderWidth: 1,
-            borderColor: glassBorder,
+            borderColor: tokens.border,
+            marginBottom: 16,
           }}
         >
-          {/* Decorative brand blob (matches mockup -top-12 -right-12) */}
-          <View
-            pointerEvents="none"
+          <Text
             style={{
-              position: 'absolute',
-              top: -48,
-              right: -48,
-              width: 160,
-              height: 160,
-              borderRadius: 80,
-              backgroundColor: 'rgba(59,130,246,0.30)',
+              fontSize: 11,
+              fontWeight: '600',
+              color: tokens.muted,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}
+          >
+            Detected amount
+          </Text>
+          <View style={{ marginTop: 8 }}>
+            <Amount value={amountNum} currency={currency} size={36} weight="700" />
+          </View>
+          {params.categoryHint ? (
+            <View style={{ marginTop: 12 }}>
+              <Chip label={params.categoryHint} variant="good" />
+            </View>
+          ) : null}
+          {/* Editable raw amount */}
+          <TextInput
+            value={amount}
+            onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
+            keyboardType="decimal-pad"
+            placeholder="Edit amount"
+            placeholderTextColor={tokens.muted}
+            style={{
+              marginTop: 12,
+              minWidth: 120,
+              height: 36,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              paddingHorizontal: 10,
+              color: tokens.ink,
+              textAlign: 'center',
+              fontVariant: ['tabular-nums'],
             }}
           />
+        </View>
 
+        {/* Merchant */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            padding: 14,
+            borderRadius: 12,
+            backgroundColor: tokens.surface,
+            borderWidth: 1,
+            borderColor: tokens.border,
+            marginBottom: 8,
+          }}
+        >
+          <Store size={18} color={tokens.muted} />
+          <TextInput
+            value={merchant}
+            onChangeText={setMerchant}
+            placeholder="Where was this?"
+            placeholderTextColor={tokens.muted}
+            style={{
+              flex: 1,
+              fontSize: 14,
+              color: tokens.ink,
+              paddingVertical: 0,
+            }}
+          />
+        </View>
+
+        {/* Note */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            padding: 14,
+            borderRadius: 12,
+            backgroundColor: tokens.surface,
+            borderWidth: 1,
+            borderColor: tokens.border,
+            marginBottom: 16,
+          }}
+        >
+          <StickyNote size={18} color={tokens.muted} />
+          <TextInput
+            value={note}
+            onChangeText={setNote}
+            placeholder="Optional note"
+            placeholderTextColor={tokens.muted}
+            style={{
+              flex: 1,
+              fontSize: 14,
+              color: tokens.ink,
+              paddingVertical: 0,
+            }}
+          />
+        </View>
+
+        {/* Group selector */}
+        <SectionHeader>Group</SectionHeader>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+          style={{ marginBottom: 12 }}
+        >
+          <Pressable onPress={() => setGroupId(null)}>
+            <Chip
+              label="None"
+              variant={groupId === null ? 'solid' : 'default'}
+            />
+          </Pressable>
+          {groups.map((g) => (
+            <Pressable key={g.id} onPress={() => setGroupId(g.id)}>
+              <Chip
+                label={g.name}
+                variant={groupId === g.id ? 'solid' : 'default'}
+              />
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* Wallet selector */}
+        <SectionHeader>Wallet</SectionHeader>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+          style={{ marginBottom: 16 }}
+        >
+          {wallets.length === 0 ? (
+            <Text
+              style={{
+                fontSize: 13,
+                color: tokens.muted,
+                paddingVertical: 8,
+              }}
+            >
+              No wallets — add one in settings.
+            </Text>
+          ) : (
+            wallets.map((w) => {
+              const selected = (walletId ?? initialWalletId) === w.id;
+              return (
+                <Pressable key={w.id} onPress={() => setWalletId(w.id)}>
+                  <Chip
+                    label={w.name}
+                    variant={selected ? 'solid' : 'default'}
+                  />
+                </Pressable>
+              );
+            })
+          )}
+        </ScrollView>
+
+        {/* Date */}
+        <SectionHeader>When</SectionHeader>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            padding: 14,
+            borderRadius: 12,
+            backgroundColor: tokens.surface,
+            borderWidth: 1,
+            borderColor: tokens.border,
+            marginBottom: 16,
+          }}
+        >
+          <Calendar size={18} color={tokens.muted} />
           <Text
-            className="text-[11px] font-bold tracking-widest"
-            style={{ color: inkSecondary }}
+            style={{
+              flex: 1,
+              fontSize: 14,
+              fontWeight: '500',
+              color: tokens.ink,
+            }}
           >
-            DETECTED AMOUNT
+            {formatRelativeDate(occurredAt)}
           </Text>
-
-          <View className="flex-row items-baseline mt-1" style={{ gap: 4 }}>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
-              placeholder={currency === 'INR' ? '₹0' : `${currency} 0`}
-              placeholderTextColor={inkPlaceholder}
+          <Pressable
+            onPress={() => setOccurredAt(new Date().toISOString())}
+            hitSlop={6}
+          >
+            <Text
               style={{
-                flex: 1,
-                fontSize: 44,
-                fontWeight: '800',
-                color: inkPrimary,
-                paddingVertical: 0,
-              }}
-            />
-          </View>
-
-          <Text className="text-[12px] mt-1" style={{ color: inkSecondary }}>
-            {formattedAmount}
-          </Text>
-
-          {parsed.category_hint && (
-            <View
-              className="self-start flex-row items-center mt-3 px-2 py-1"
-              style={{
-                gap: 6,
-                borderRadius: 999,
-                backgroundColor: 'rgba(16,185,129,0.18)',
+                fontSize: 12,
+                fontWeight: '600',
+                color: tokens.brand,
               }}
             >
-              <Ionicons name="flash" size={12} color="#10B981" />
-              <Text className="text-[11px] font-bold" style={{ color: '#10B981' }}>
-                AI confident · {parsed.category_hint}
-              </Text>
-            </View>
-          )}
+              Now
+            </Text>
+          </Pressable>
         </View>
 
-        {/* Section rows */}
-        <View className="mt-4" style={{ gap: 8 }}>
-          {/* Merchant */}
+        {/* Voice transcript echo */}
+        {source === 'voice' && params.transcript ? (
           <View
-            className="flex-row items-center p-3"
-            style={{ gap: 10, borderRadius: 16, backgroundColor: rowBg }}
+            style={{
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: tokens.surface,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              marginBottom: 24,
+            }}
           >
-            <Ionicons name="storefront-outline" size={18} color={inkSecondary} />
-            <TextInput
-              value={merchant}
-              onChangeText={setMerchant}
-              placeholder="Where was this?"
-              placeholderTextColor={inkPlaceholder}
-              style={{
-                flex: 1,
-                fontSize: 14,
-                fontWeight: '500',
-                color: inkPrimary,
-                paddingVertical: 0,
-              }}
-            />
-          </View>
-
-          {/* Note */}
-          <View
-            className="flex-row items-center p-3"
-            style={{ gap: 10, borderRadius: 16, backgroundColor: rowBg }}
-          >
-            <Ionicons name="document-text-outline" size={18} color={inkSecondary} />
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Optional note"
-              placeholderTextColor={inkPlaceholder}
-              style={{
-                flex: 1,
-                fontSize: 14,
-                fontWeight: '500',
-                color: inkPrimary,
-                paddingVertical: 0,
-              }}
-            />
-          </View>
-
-          {/* Category */}
-          <Pressable
-            onPress={() => setShowCategory(true)}
-            style={[
-              ROW_STATIC_STYLE,
-              {
-                backgroundColor: rowBg,
-                borderWidth: !categoryId ? 1 : 0,
-                borderColor: 'rgba(239,68,68,0.45)',
-              },
-            ]}
-          >
-            <Ionicons name="pricetags-outline" size={18} color={inkSecondary} />
             <Text
               style={{
-                flex: 1,
-                fontSize: 14,
+                fontSize: 11,
                 fontWeight: '600',
-                color: selectedCategory ? inkPrimary : inkPlaceholder,
+                color: tokens.muted,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                marginBottom: 6,
               }}
             >
-              {selectedCategory?.label ??
-                (aiBusy ? 'AI is picking a category…' : 'Pick a category')}
+              From your voice
             </Text>
-            {aiBusy ? (
-              <ActivityIndicator size="small" color={isDark ? '#60A5FA' : '#3B82F6'} />
-            ) : (
-              <Ionicons name="chevron-forward" size={18} color={inkSecondary} />
-            )}
-          </Pressable>
-
-          {/* Wallet */}
-          <Pressable
-            onPress={() => setShowWallet(true)}
-            style={[
-              ROW_STATIC_STYLE,
-              {
-                backgroundColor: rowBg,
-                borderWidth: !walletId ? 1 : 0,
-                borderColor: 'rgba(239,68,68,0.45)',
-              },
-            ]}
-          >
-            <Ionicons name="card-outline" size={18} color={inkSecondary} />
             <Text
               style={{
-                flex: 1,
-                fontSize: 14,
-                fontWeight: '600',
-                color: selectedWallet ? inkPrimary : inkPlaceholder,
+                fontSize: 13,
+                fontStyle: 'italic',
+                color: tokens.ink,
               }}
             >
-              {selectedWallet?.label ?? 'Pick a wallet'}
+              "{params.transcript}"
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={inkSecondary} />
-          </Pressable>
-
-          {/* Date */}
-          <View
-            className="flex-row items-center p-3"
-            style={{ gap: 10, borderRadius: 16, backgroundColor: rowBg }}
-          >
-            <Ionicons name="calendar-outline" size={18} color={inkSecondary} />
-            <Text
-              style={{
-                flex: 1,
-                fontSize: 14,
-                fontWeight: '600',
-                color: inkPrimary,
-              }}
-            >
-              {formatRelativeDate(occurredAt)}
-            </Text>
-            <Pressable onPress={() => setOccurredAt(new Date().toISOString())} hitSlop={6}>
-              <Text className="text-[12px] font-semibold text-[#3B82F6]">Now</Text>
-            </Pressable>
           </View>
-
-          {/* Voice transcript echo */}
-          {source === 'voice' && payload.transcript && (
-            <View
-              className="p-3"
-              style={{
-                borderRadius: 16,
-                backgroundColor: glassBg,
-                borderWidth: 1,
-                borderColor: glassBorder,
-              }}
-            >
-              <View className="flex-row items-center mb-1" style={{ gap: 6 }}>
-                <Ionicons name="volume-medium-outline" size={14} color="#3B82F6" />
-                <Text
-                  className="text-[11px] font-bold tracking-widest"
-                  style={{ color: inkSecondary }}
-                >
-                  FROM YOUR VOICE
-                </Text>
-              </View>
-              <Text
-                className="text-[12px] italic"
-                style={{ color: inkPrimary }}
-              >
-                "{payload.transcript}"
-              </Text>
-            </View>
-          )}
-
-          {currency !== baseCurrency && (
-            <Pressable
-              onPress={() => setCurrency(baseCurrency)}
-              style={[
-                CURRENCY_CHIP_STYLE,
-                { backgroundColor: 'rgba(59,130,246,0.12)' },
-              ]}
-            >
-              <Text className="text-[12px] font-semibold text-[#3B82F6]">
-                Currency: {currency} → tap to use {baseCurrency}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-
-        <View className="flex-1" />
-
-        {formError && (
-          <Card padded={false} style={{ marginBottom: 8 }}>
-            <Text className="p-3 text-[#EF4444] text-[13px] font-semibold">
-              {formError}
-            </Text>
-          </Card>
+        ) : (
+          <View style={{ height: 8 }} />
         )}
 
-        {/* Footer */}
-        <View className="flex-row mb-4" style={{ gap: 12 }}>
-          <Button variant="ghost" onPress={() => router.back()} style={{ flex: 1 }}>
-            Cancel
-          </Button>
-          <Button
-            onPress={handleSave}
-            loading={createMutation.isPending}
-            leftIcon={<Ionicons name="checkmark" size={18} color="#FFFFFF" />}
-            style={{ flex: 2 }}
-          >
-            Save expense
-          </Button>
+        {/* Actions */}
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Button
+              label="Cancel"
+              variant="ghost"
+              onPress={() => router.back()}
+            />
+          </View>
+          <View style={{ flex: 2 }}>
+            <Button
+              label={create.isPending ? 'Saving…' : 'Save'}
+              variant="brand"
+              loading={create.isPending}
+              onPress={onSave}
+              icon={<Check size={18} color="#FFFFFF" />}
+            />
+          </View>
         </View>
-      </View>
-
-      <PickerSheet
-        open={showCategory}
-        onClose={() => setShowCategory(false)}
-        title="Pick a category"
-        items={categoryItems}
-        selectedId={categoryId}
-        onSelect={(it) => setCategoryId(it.id)}
-        emptyLabel="No categories yet. Add one in Settings."
-      />
-      <PickerSheet
-        open={showWallet}
-        onClose={() => setShowWallet(false)}
-        title="Pick a wallet"
-        items={walletItems}
-        selectedId={walletId}
-        onSelect={(it) => setWalletId(it.id)}
-        emptyLabel="No wallets yet. Add one in Settings."
-      />
+      </ScrollView>
     </Screen>
   );
 }
-
-// STATIC array-form styles — layout-bearing Pressables.
-const ROW_STATIC_STYLE = {
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 10,
-  padding: 12,
-  borderRadius: 16,
-};
-
-const CURRENCY_CHIP_STYLE = {
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  alignSelf: 'flex-start' as const,
-  borderRadius: 999,
-};

@@ -1,268 +1,150 @@
-// 03. OnboardingAuth (sign-up side) — pixel-match mockup screen 02 sign-up state.
-// Same chrome as login: back btn + title + subtitle, segmented toggle,
-// flat surf-l1 fields, primary submit. Adds optional name + confirm password.
+// 06 — Sign-up. MVP design, wired to new app auth store.
 
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-  useColorScheme,
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { View, Text, Pressable } from 'react-native';
+import { Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Button } from '../../src/components/glass';
-import { ApiError } from '../../src/lib/api';
+import { Screen } from '../../src/components/layout/Screen';
+import { Header } from '../../src/components/layout/Header';
+import { Button } from '../../src/components/ui/Button';
+import { Input } from '../../src/components/ui/Input';
+import { useToast } from '../../src/components/ui/Toast';
+import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAuth } from '../../src/store/auth';
-import { AuthTopBar } from '../../src/components/auth/AuthTopBar';
-import { AuthField } from '../../src/components/auth/AuthField';
-import { AuthSegmented } from '../../src/components/auth/AuthSegmented';
-import { FormBanner } from '../../src/components/auth/FormBanner';
+import { ApiError } from '../../src/lib/api';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function passwordScore(pw: string): number {
+  let s = 0;
+  if (pw.length >= 8) s += 1;
+  if (/[A-Z]/.test(pw)) s += 1;
+  if (/[0-9]/.test(pw)) s += 1;
+  if (/[^A-Za-z0-9]/.test(pw)) s += 1;
+  return s;
+}
 
 export default function SignupScreen() {
+  const { tokens } = useTheme();
   const router = useRouter();
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
+  const toast = useToast();
   const signup = useAuth((s) => s.signup);
-
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [showPwd, setShowPwd] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [agree, setAgree] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const [emailErr, setEmailErr] = useState<string | undefined>();
-  const [passwordErr, setPasswordErr] = useState<string | undefined>();
-  const [confirmErr, setConfirmErr] = useState<string | undefined>();
-  const [submitError, setSubmitError] = useState<string | undefined>();
-  const [submitting, setSubmitting] = useState(false);
+  const score = passwordScore(password);
+  const scoreLabel = score >= 3 ? 'Strong' : score === 2 ? 'OK' : 'Weak';
+  const scoreColor = score >= 3 ? tokens.good : score === 2 ? tokens.warn : tokens.bad;
 
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const muted = isDark ? '#64748B' : '#94A3B8';
-  const brand = isDark ? '#60A5FA' : '#3B82F6';
-
-  function validate(): boolean {
-    let ok = true;
-    if (!EMAIL_RE.test(email.trim())) {
-      setEmailErr('Enter a valid email');
-      ok = false;
-    } else {
-      setEmailErr(undefined);
+  const onSubmit = async () => {
+    if (!agree) {
+      toast.show('Please agree to the Terms', 'bad');
+      return;
     }
     if (password.length < 8) {
-      setPasswordErr('At least 8 characters');
-      ok = false;
-    } else {
-      setPasswordErr(undefined);
+      toast.show('Password must be at least 8 characters', 'bad');
+      return;
     }
-    if (confirm !== password) {
-      setConfirmErr('Passwords do not match');
-      ok = false;
-    } else {
-      setConfirmErr(undefined);
-    }
-    return ok;
-  }
-
-  async function onSubmit() {
-    setSubmitError(undefined);
-    if (!validate()) return;
-    setSubmitting(true);
+    setLoading(true);
     try {
-      const trimmedName = name.trim();
-      await signup(
-        email.trim().toLowerCase(),
-        password,
-        trimmedName.length > 0 ? trimmedName : undefined,
-      );
-    } catch (err) {
+      await signup(email.trim().toLowerCase(), password, name.trim() || undefined);
+      // After signup go to currency picker, then wallet, then home.
+      router.replace('/(onboarding)/currency');
+    } catch (e) {
       const msg =
-        err instanceof ApiError
-          ? err.status === 409
-            ? 'An account with that email already exists.'
-            : err.status === 400
-              ? (err.message ?? 'Check your details and try again.')
-              : (err.message ?? 'Could not create account. Try again.')
-          : 'Network error. Check your connection.';
-      setSubmitError(msg);
+        e instanceof ApiError
+          ? e.message ?? 'Could not create account'
+          : 'Could not create account';
+      toast.show(msg, 'bad');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: 24,
-            paddingTop: 12,
-            paddingBottom: 32,
-          }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <AuthTopBar
-            title="Create your account"
-            subtitle="Speak it. Track it. Make sense of your spending."
+      <Header back />
+      <View style={{ paddingHorizontal: 24, flex: 1 }}>
+        <Text style={{ fontSize: 28, fontWeight: '700', color: tokens.ink }}>Create account</Text>
+        <Text style={{ fontSize: 13, color: tokens.muted, marginTop: 4, marginBottom: 24 }}>
+          30 seconds. No card needed.
+        </Text>
+        <View style={{ gap: 12 }}>
+          <Input
+            label="Name"
+            value={name}
+            onChangeText={setName}
+            placeholder="Yash"
+            autoComplete="name"
           />
-
-          <View style={{ marginTop: 32 }}>
-            <AuthSegmented
-              active="signup"
-              onChange={(next) => {
-                if (next === 'signin') router.replace('/(onboarding)/login');
-              }}
-            />
-          </View>
-
-          <View style={{ marginTop: 24, gap: 16 }}>
-            {submitError ? <FormBanner message={submitError} tone="error" /> : null}
-
-            <AuthField
-              label="Name (optional)"
-              value={name}
-              onChangeText={setName}
-              placeholder="Yash"
-              autoCapitalize="words"
-              autoComplete="name"
-              textContentType="name"
-              returnKeyType="next"
-              leftIcon={<Feather name="user" size={16} color={meta} />}
-            />
-
-            <AuthField
-              label="Email"
-              value={email}
-              onChangeText={(v) => {
-                setEmail(v);
-                if (emailErr) setEmailErr(undefined);
-              }}
-              placeholder="you@example.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-              returnKeyType="next"
-              error={emailErr}
-              leftIcon={<Feather name="mail" size={16} color={meta} />}
-            />
-
-            <AuthField
-              label="Password"
-              value={password}
-              onChangeText={(v) => {
-                setPassword(v);
-                if (passwordErr) setPasswordErr(undefined);
-              }}
-              placeholder="••••••••"
-              secureTextEntry={!showPwd}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="new-password"
-              textContentType="newPassword"
-              returnKeyType="next"
-              error={passwordErr}
-              helper={passwordErr ? undefined : 'Minimum 8 characters'}
-              leftIcon={<Feather name="lock" size={16} color={meta} />}
-              rightSlot={
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={showPwd ? 'Hide password' : 'Show password'}
-                  onPress={() => setShowPwd((v) => !v)}
-                  hitSlop={8}
-                >
-                  <Feather
-                    name={showPwd ? 'eye-off' : 'eye'}
-                    size={16}
-                    color={meta}
+          <Input
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            placeholder="you@example.com"
+          />
+          <Input
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="At least 8 characters"
+          />
+          {password.length > 0 ? (
+            <View>
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <View
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: 4,
+                      borderRadius: 999,
+                      backgroundColor: i < score ? scoreColor : tokens.border,
+                    }}
                   />
-                </Pressable>
-              }
-            />
-
-            <AuthField
-              label="Confirm password"
-              value={confirm}
-              onChangeText={(v) => {
-                setConfirm(v);
-                if (confirmErr) setConfirmErr(undefined);
-              }}
-              placeholder="••••••••"
-              secureTextEntry={!showConfirm}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="new-password"
-              textContentType="newPassword"
-              returnKeyType="done"
-              onSubmitEditing={onSubmit}
-              error={confirmErr}
-              leftIcon={<Feather name="lock" size={16} color={meta} />}
-              rightSlot={
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    showConfirm ? 'Hide password' : 'Show password'
-                  }
-                  onPress={() => setShowConfirm((v) => !v)}
-                  hitSlop={8}
-                >
-                  <Feather
-                    name={showConfirm ? 'eye-off' : 'eye'}
-                    size={16}
-                    color={meta}
-                  />
-                </Pressable>
-              }
-            />
-          </View>
-
-          <View style={{ marginTop: 28 }}>
-            <Button
-              size="lg"
-              fullWidth
-              loading={submitting}
-              disabled={submitting}
-              onPress={onSubmit}
-            >
-              Create account
-            </Button>
-          </View>
-
+                ))}
+              </View>
+              <Text style={{ color: scoreColor, fontSize: 12, marginTop: 4 }}>{scoreLabel}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Pressable
+          onPress={() => setAgree((v) => !v)}
+          style={{
+            flexDirection: 'row',
+            gap: 8,
+            marginTop: 20,
+            alignItems: 'flex-start',
+          }}
+        >
           <View
             style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
+              width: 20,
+              height: 20,
+              borderRadius: 6,
+              backgroundColor: agree ? tokens.brand : 'transparent',
+              borderWidth: agree ? 0 : 1,
+              borderColor: tokens.border,
               alignItems: 'center',
-              marginTop: 20,
-              gap: 4,
+              justifyContent: 'center',
+              marginTop: 2,
             }}
           >
-            <Text style={{ fontSize: 11, color: muted }}>
-              Already have an account?
-            </Text>
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => router.replace('/(onboarding)/login')}
-              hitSlop={8}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '600', color: brand }}>
-                Sign in
-              </Text>
-            </Pressable>
+            {agree ? <Check size={14} color="#fff" /> : null}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <Text style={{ fontSize: 12, color: tokens.muted, flex: 1 }}>
+            I agree to the Terms and Privacy Policy.
+          </Text>
+        </Pressable>
+      </View>
+      <View style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
+        <Button label="Create account" onPress={onSubmit} loading={loading} />
+      </View>
     </Screen>
   );
 }

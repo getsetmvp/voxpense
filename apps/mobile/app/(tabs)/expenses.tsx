@@ -1,8 +1,5 @@
-// 07. ExpenseListScreen — pixel-match mockup screen 07.
-// Header: bold "Expenses" + search icon + filter icon (w/ active dot).
-// Active filter pills row.
-// Day-grouped list (section-h on left, day total on right; surf-l0 rows).
-// Floating brand FAB (right-bottom, anchored above tab bar).
+// Expense list tab — mockup 14. Day-grouped FlatList with header
+// (title + search + filter), active filter pills row, EmptyState, brand FAB.
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -10,47 +7,82 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
-  useColorScheme,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Plus, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { Screen, Input } from '../../src/components/glass';
+import { Screen } from '../../src/components/layout/Screen';
+import { Chip } from '../../src/components/ui/Chip';
+import { Input } from '../../src/components/ui/Input';
+import { EmptyState } from '../../src/components/ui/EmptyState';
+import { ExpenseRow } from '../../src/components/feature/ExpenseRow';
 import {
-  EmptyExpenses,
-  ExpenseRow,
-  FilterPills,
   FilterSheet,
-  emptyFilters,
-  groupByDay,
-  toListRows,
-  type FilterPill,
-  type FilterValues,
-  type ListRow,
-} from '../../src/components/expense';
-import { flattenPages, useExpensesList } from '../../src/queries/expenses';
+  type ExpenseListFilter,
+} from '../../src/components/feature/FilterSheet';
+import { useTheme } from '../../src/theme/ThemeProvider';
 import {
-  useCategories,
+  flattenPages,
+  useExpensesList,
+} from '../../src/queries/expenses';
+import {
   useGroups,
   useWallets,
 } from '../../src/queries/insights';
 import { useAuth } from '../../src/store/auth';
-import { rangeForPreset, DATE_PRESETS } from '../../src/hooks/useDateRange';
 import { formatCurrency } from '../../src/lib/format';
+import { toNumber } from '../../src/lib/insights';
+import type { Expense } from '@voxpense/shared-types';
 
-export default function ExpensesScreen() {
+type DayBucket = { date: string; total: number; items: Expense[] };
+type Row =
+  | { kind: 'header'; bucket: DayBucket }
+  | { kind: 'expense'; expense: Expense; isFirst: boolean; isLast: boolean };
+
+function groupByDay(list: Expense[]): DayBucket[] {
+  const map = new Map<string, Expense[]>();
+  for (const e of list) {
+    const day = e.occurredAt.slice(0, 10);
+    map.set(day, [...(map.get(day) ?? []), e]);
+  }
+  return Array.from(map.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([day, items]) => ({
+      date: day,
+      items,
+      total: items.reduce((a, b) => a + toNumber(b.amount), 0),
+    }));
+}
+
+function formatDayLabel(iso: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(iso);
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const diff = Math.round((today.getTime() - targetDay.getTime()) / 86_400_000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  if (diff < 7 && diff > 0) {
+    return targetDay.toLocaleDateString(undefined, { weekday: 'long' });
+  }
+  return targetDay.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: targetDay.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  });
+}
+
+export default function ExpensesTab() {
+  const { tokens } = useTheme();
   const router = useRouter();
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
+  const params = useLocalSearchParams<{ filter?: string }>();
   const user = useAuth((s) => s.user);
   const currency = user?.baseCurrency ?? 'INR';
 
-  // ── filter + search state ────────────────────────────────────────────────
-  const [filters, setFilters] = useState<FilterValues>(emptyFilters);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filter, setFilter] = useState<ExpenseListFilter>({});
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -60,108 +92,112 @@ export default function ExpensesScreen() {
     return () => clearTimeout(id);
   }, [searchInput]);
 
-  // ── derive query params from filters ─────────────────────────────────────
-  const range = useMemo(() => rangeForPreset(filters.preset), [filters.preset]);
-  const listParams = useMemo(
-    () => ({
-      from: range.from,
-      to: range.to,
-      category_id: filters.categoryId ?? undefined,
-      wallet_id: filters.walletId ?? undefined,
-      group_id: filters.groupId ?? undefined,
-      q: debouncedQ.length > 0 ? debouncedQ : undefined,
-      limit: 30,
-    }),
-    [range, filters, debouncedQ],
-  );
+  // Parse incoming `?filter=` (e.g. coming from Ask screen)
+  useEffect(() => {
+    const raw = params.filter;
+    if (typeof raw !== 'string') return;
+    try {
+      const parsed = JSON.parse(raw);
+      setFilter((f) => ({ ...f, ...parsed }));
+    } catch {
+      // ignore
+    }
+  }, [params.filter]);
 
-  const list = useExpensesList(listParams);
-  const expenses = flattenPages(list.data);
-
-  const groups = useMemo(() => groupByDay(expenses), [expenses]);
-  const rows: ListRow[] = useMemo(() => toListRows(groups), [groups]);
-
-  // ── ref data ────────────────────────────────────────────────────────────
-  const categoriesQ = useCategories();
-  const walletsQ = useWallets();
+  // Pull groups/wallets for label resolution + ExpenseRow rendering
   const groupsQ = useGroups();
-  const categoryById = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof categoriesQ.data>[number]>();
-    (categoriesQ.data ?? []).forEach((c) => m.set(c.id, c));
+  const walletsQ = useWallets();
+  const groupById = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof groupsQ.data>[number]>();
+    (groupsQ.data ?? []).forEach((g) => m.set(g.id, g));
     return m;
-  }, [categoriesQ.data]);
+  }, [groupsQ.data]);
   const walletById = useMemo(() => {
     const m = new Map<string, NonNullable<typeof walletsQ.data>[number]>();
     (walletsQ.data ?? []).forEach((w) => m.set(w.id, w));
     return m;
   }, [walletsQ.data]);
 
-  // ── pills ───────────────────────────────────────────────────────────────
-  const pills: FilterPill[] = useMemo(() => {
-    const out: FilterPill[] = [];
-    if (filters.preset !== 'all') {
-      const presetDef = DATE_PRESETS.find((p) => p.id === filters.preset);
-      if (presetDef) {
+  // Server-side filters (group, wallet, search). `source` filtered client-side.
+  const listParams = useMemo(
+    () => ({
+      group_id: filter.groupId ?? undefined,
+      wallet_id: filter.walletId ?? undefined,
+      q: debouncedQ.length > 0 ? debouncedQ : undefined,
+      limit: 30,
+    }),
+    [filter.groupId, filter.walletId, debouncedQ],
+  );
+
+  const list = useExpensesList(listParams);
+  const allExpenses = flattenPages(list.data);
+  const expenses = useMemo(() => {
+    if (!filter.source) return allExpenses;
+    return allExpenses.filter((e) => e.source === filter.source);
+  }, [allExpenses, filter.source]);
+
+  const buckets = useMemo(() => groupByDay(expenses), [expenses]);
+  const rows: Row[] = useMemo(() => {
+    const out: Row[] = [];
+    for (const b of buckets) {
+      out.push({ kind: 'header', bucket: b });
+      b.items.forEach((e, i) => {
         out.push({
-          key: 'preset',
-          label: presetDef.label,
-          onRemove: () => setFilters((f) => ({ ...f, preset: 'all' })),
+          kind: 'expense',
+          expense: e,
+          isFirst: i === 0,
+          isLast: i === b.items.length - 1,
         });
-      }
-    }
-    if (filters.categoryId) {
-      const c = categoryById.get(filters.categoryId);
-      out.push({
-        key: 'category',
-        label: c?.name ?? 'Category',
-        onRemove: () => setFilters((f) => ({ ...f, categoryId: null })),
-      });
-    }
-    if (filters.walletId) {
-      const w = walletById.get(filters.walletId);
-      out.push({
-        key: 'wallet',
-        label: w?.name ?? 'Wallet',
-        onRemove: () => setFilters((f) => ({ ...f, walletId: null })),
-      });
-    }
-    if (filters.groupId) {
-      const g = (groupsQ.data ?? []).find((it) => it.id === filters.groupId);
-      out.push({
-        key: 'group',
-        label: g?.name ?? 'Group',
-        onRemove: () => setFilters((f) => ({ ...f, groupId: null })),
       });
     }
     return out;
-  }, [filters, categoryById, walletById, groupsQ.data]);
+  }, [buckets]);
 
-  const hasAnyFilter = pills.length > 0 || debouncedQ.length > 0;
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const brand = isDark ? '#60A5FA' : '#3B82F6';
+  // Active filter pills (each renders as a Chip with X)
+  const pills = useMemo(() => {
+    const out: { key: string; label: string; onRemove: () => void }[] = [];
+    if (filter.groupId) {
+      const g = groupById.get(filter.groupId);
+      out.push({
+        key: 'group',
+        label: g?.name ?? 'Group',
+        onRemove: () => setFilter((f) => ({ ...f, groupId: null })),
+      });
+    }
+    if (filter.walletId) {
+      const w = walletById.get(filter.walletId);
+      out.push({
+        key: 'wallet',
+        label: w?.name ?? 'Wallet',
+        onRemove: () => setFilter((f) => ({ ...f, walletId: null })),
+      });
+    }
+    if (filter.source) {
+      out.push({
+        key: 'source',
+        label: filter.source.charAt(0).toUpperCase() + filter.source.slice(1),
+        onRemove: () => setFilter((f) => ({ ...f, source: undefined })),
+      });
+    }
+    return out;
+  }, [filter, groupById, walletById]);
+
+  const hasActiveFilters = pills.length > 0;
 
   return (
-    <Screen>
+    <Screen edges={['top']}>
       {/* Header */}
       <View
         style={{
+          paddingHorizontal: 20,
+          paddingTop: 8,
+          paddingBottom: 12,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: 12,
         }}
       >
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: '700',
-            color: ink,
-            letterSpacing: -0.3,
-          }}
-        >
+        <Text style={{ fontSize: 24, fontWeight: '700', color: tokens.ink }}>
           Expenses
         </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -176,39 +212,35 @@ export default function ExpensesScreen() {
               });
             }}
             accessibilityLabel="Toggle search"
-            style={({ pressed }) => [
-              expStyles.headerBtn,
-              {
-                backgroundColor: searchOpen
-                  ? isDark
-                    ? 'rgba(96,165,250,0.22)'
-                    : 'rgba(59,130,246,0.14)'
-                  : isDark
-                    ? 'rgba(31,41,55,0.7)'
-                    : 'rgba(241,244,248,1)',
-                opacity: pressed ? 0.75 : 1,
-              },
-            ]}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              backgroundColor: searchOpen ? `${tokens.brand}1A` : tokens.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Ionicons
-              name="search"
-              size={18}
-              color={searchOpen ? brand : ink}
-            />
+            <Search size={18} color={searchOpen ? tokens.brand : tokens.ink} />
           </Pressable>
           <Pressable
-            onPress={() => setFilterOpen(true)}
+            onPress={() => setSheetOpen(true)}
             accessibilityLabel="Open filters"
-            style={({ pressed }) => [
-              expStyles.headerBtn,
-              {
-                backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)',
-                opacity: pressed ? 0.75 : 1,
-              },
-            ]}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              backgroundColor: tokens.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Ionicons name="options" size={18} color={ink} />
-            {pills.length > 0 ? (
+            <SlidersHorizontal size={18} color={tokens.ink} />
+            {hasActiveFilters ? (
               <View
                 style={{
                   position: 'absolute',
@@ -217,7 +249,7 @@ export default function ExpensesScreen() {
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: brand,
+                  backgroundColor: tokens.brand,
                 }}
               />
             ) : null}
@@ -225,7 +257,7 @@ export default function ExpensesScreen() {
         </View>
       </View>
 
-      {/* Search input */}
+      {/* Search bar (toggled) */}
       {searchOpen ? (
         <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
           <Input
@@ -235,115 +267,60 @@ export default function ExpensesScreen() {
             autoFocus
             autoCorrect={false}
             returnKeyType="search"
-            leftIcon={<Ionicons name="search" size={16} color={meta} />}
-            rightIcon={
-              searchInput.length > 0 ? (
-                <Pressable onPress={() => setSearchInput('')}>
-                  <Ionicons name="close-circle" size={16} color={meta} />
-                </Pressable>
-              ) : null
-            }
           />
         </View>
       ) : null}
 
       {/* Active filter pills */}
-      <FilterPills pills={pills} />
+      {pills.length > 0 ? (
+        <View
+          style={{
+            paddingHorizontal: 20,
+            paddingBottom: 8,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 6,
+          }}
+        >
+          {pills.map((p) => (
+            <Pressable key={p.key} onPress={p.onRemove}>
+              <Chip
+                label={p.label}
+                variant="brand"
+                icon={<X size={12} color={tokens.brand} />}
+              />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       {/* List */}
       {list.isLoading ? (
-        <SkeletonList isDark={isDark} />
-      ) : list.isError ? (
-        <View style={{ padding: 24 }}>
-          <Pressable
-            onPress={() => list.refetch()}
-            style={{
-              padding: 16,
-              borderRadius: 14,
-              backgroundColor: isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.10)',
-              borderWidth: 1,
-              borderColor: 'rgba(239,68,68,0.35)',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
-            <Ionicons name="alert-circle" size={20} color="#EF4444" />
-            <Text style={{ flex: 1, color: isDark ? '#FECACA' : '#B91C1C', fontSize: 14 }}>
-              Couldn't load expenses. Tap to retry.
-            </Text>
-          </Pressable>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={tokens.brand} />
         </View>
       ) : rows.length === 0 ? (
-        <EmptyExpenses
-          hasFilters={hasAnyFilter}
-          onClearFilters={() => {
-            setFilters(emptyFilters);
-            setSearchInput('');
-            setDebouncedQ('');
-          }}
-          onAdd={() => router.push('/(capture)/voice')}
+        <EmptyState
+          title="No expenses match"
+          body={
+            hasActiveFilters || debouncedQ.length > 0
+              ? 'Adjust filters or clear search.'
+              : 'Tap the + button to add your first expense.'
+          }
         />
       ) : (
-        <FlatList<ListRow>
+        <FlatList<Row>
           data={rows}
-          keyExtractor={keyForRow}
-          renderItem={({ item }) =>
-            item.kind === 'header' ? (
-              <View
-                style={{
-                  paddingHorizontal: 20,
-                  paddingTop: 14,
-                  paddingBottom: 8,
-                  flexDirection: 'row',
-                  alignItems: 'baseline',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '700',
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                    color: meta,
-                  }}
-                >
-                  {item.group.label}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: '700',
-                    color: ink,
-                    fontVariant: ['tabular-nums'],
-                  }}
-                >
-                  {formatCurrency(item.group.total, currency)}
-                </Text>
-              </View>
-            ) : (
-              <View style={{ paddingHorizontal: 20, paddingVertical: 3 }}>
-                <ExpenseRow
-                  expense={item.expense}
-                  currency={currency}
-                  category={
-                    item.expense.categoryId
-                      ? categoryById.get(item.expense.categoryId)
-                      : undefined
-                  }
-                  wallet={walletById.get(item.expense.walletId)}
-                  onPress={() => router.push(`/expense/${item.expense.id}`)}
-                />
-              </View>
-            )
+          keyExtractor={(r, idx) =>
+            r.kind === 'header' ? `h:${r.bucket.date}` : `e:${r.expense.id}:${idx}`
           }
-          contentContainerStyle={{ paddingBottom: 120, paddingTop: 2 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
               refreshing={list.isRefetching && !list.isFetchingNextPage}
               onRefresh={() => list.refetch()}
-              tintColor={brand}
+              tintColor={tokens.brand}
+              colors={[tokens.brand]}
             />
           }
           onEndReached={() => {
@@ -355,137 +332,118 @@ export default function ExpensesScreen() {
           ListFooterComponent={
             list.isFetchingNextPage ? (
               <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-                <ActivityIndicator color={brand} />
-              </View>
-            ) : !list.hasNextPage && rows.length > 0 ? (
-              <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-                <Text style={{ color: meta, fontSize: 11, fontWeight: '600' }}>
-                  · end ·
-                </Text>
+                <ActivityIndicator color={tokens.brand} />
               </View>
             ) : null
+          }
+          renderItem={({ item }) =>
+            item.kind === 'header' ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingTop: 16,
+                  paddingBottom: 6,
+                }}
+              >
+                <Text
+                  style={{
+                    color: tokens.muted,
+                    fontSize: 12,
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {formatDayLabel(item.bucket.date)}
+                </Text>
+                <Text
+                  style={{
+                    color: tokens.muted,
+                    fontVariant: ['tabular-nums'],
+                    fontSize: 12,
+                    fontWeight: '500',
+                  }}
+                >
+                  {formatCurrency(item.bucket.total, currency)}
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={{
+                  backgroundColor: tokens.surface,
+                  borderLeftWidth: 1,
+                  borderRightWidth: 1,
+                  borderColor: tokens.border,
+                  borderTopWidth: item.isFirst ? 1 : 0,
+                  borderBottomWidth: item.isLast ? 1 : 0,
+                  borderTopLeftRadius: item.isFirst ? 16 : 0,
+                  borderTopRightRadius: item.isFirst ? 16 : 0,
+                  borderBottomLeftRadius: item.isLast ? 16 : 0,
+                  borderBottomRightRadius: item.isLast ? 16 : 0,
+                  overflow: 'hidden',
+                }}
+              >
+                <ExpenseRow
+                  expense={item.expense}
+                  group={
+                    item.expense.groupId
+                      ? groupById.get(item.expense.groupId) ?? null
+                      : null
+                  }
+                  wallet={walletById.get(item.expense.walletId) ?? null}
+                />
+                {!item.isLast ? (
+                  <View
+                    style={{ height: 1, backgroundColor: tokens.border, marginLeft: 14 }}
+                  />
+                ) : null}
+              </View>
+            )
           }
           showsVerticalScrollIndicator={false}
         />
       )}
 
-      {/* FAB → voice capture (anchored above glass tab bar) */}
+      {/* FAB → manual capture */}
       <View
         pointerEvents="box-none"
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1000,
-          elevation: 12,
+          right: 20,
+          bottom: 96,
         }}
       >
-        <View
-          pointerEvents="box-none"
+        <Pressable
+          onPress={() => router.push('/(capture)/manual')}
+          accessibilityRole="button"
+          accessibilityLabel="Add expense"
           style={{
-            position: 'absolute',
-            right: 20,
-            bottom: 96,
             width: 56,
             height: 56,
+            borderRadius: 999,
+            backgroundColor: tokens.brand,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: tokens.brand,
+            shadowOpacity: 0.4,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 8,
           }}
         >
-          <Pressable
-            onPress={() => router.push('/(capture)/voice')}
-            accessibilityRole="button"
-            accessibilityLabel="Add expense"
-            style={({ pressed }) => [
-              expStyles.fab,
-              {
-                backgroundColor: brand,
-                opacity: pressed ? 0.9 : 1,
-              },
-            ]}
-          >
-            <Ionicons name="add" size={28} color="#FFFFFF" />
-          </Pressable>
-        </View>
+          <Plus size={28} color="#FFFFFF" />
+        </Pressable>
       </View>
 
       {/* Filter sheet */}
       <FilterSheet
-        open={filterOpen}
-        onClose={() => setFilterOpen(false)}
-        initial={filters}
-        onApply={(v) => setFilters(v)}
-        categories={categoriesQ.data ?? []}
-        wallets={walletsQ.data ?? []}
-        groups={groupsQ.data ?? []}
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        value={filter}
+        onChange={setFilter}
       />
     </Screen>
   );
 }
-
-function keyForRow(row: ListRow): string {
-  return row.kind === 'header' ? `h:${row.group.dayKey}` : `e:${row.expense.id}`;
-}
-
-function SkeletonList({ isDark }: { isDark: boolean }) {
-  const bar = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)';
-  return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 12, gap: 8 }}>
-      <View
-        style={{
-          height: 14,
-          width: 80,
-          borderRadius: 7,
-          backgroundColor: bar,
-          marginVertical: 10,
-        }}
-      />
-      {Array.from({ length: 5 }).map((_, i) => (
-        <View
-          key={i}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            padding: 10,
-            borderRadius: 14,
-            backgroundColor: isDark ? 'rgba(31,41,55,0.5)' : 'rgba(255,255,255,0.6)',
-            gap: 12,
-          }}
-        >
-          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: bar }} />
-          <View style={{ flex: 1, gap: 6 }}>
-            <View
-              style={{ height: 10, width: '60%', borderRadius: 5, backgroundColor: bar }}
-            />
-            <View
-              style={{ height: 8, width: '40%', borderRadius: 4, backgroundColor: bar }}
-            />
-          </View>
-          <View style={{ height: 12, width: 60, borderRadius: 6, backgroundColor: bar }} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-const expStyles = StyleSheet.create({
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#3B82F6',
-    shadowOpacity: 0.45,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
-  },
-});

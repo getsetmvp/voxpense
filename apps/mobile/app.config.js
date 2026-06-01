@@ -21,7 +21,7 @@ module.exports = ({ config }) => {
     splash: {
       image: './assets/images/splash-icon.png',
       resizeMode: 'contain',
-      backgroundColor: '#3B82F6',
+      backgroundColor: '#6366F1',
     },
     updates: {
       url: `${process.env.OTA_SERVER_URL || 'https://ota-server.yashguptadeveloper.workers.dev'}/voxpense/${env}/manifest`,
@@ -51,7 +51,7 @@ module.exports = ({ config }) => {
         : 'com.yashguptadeveloper.voxpense',
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
-        backgroundColor: '#3B82F6',
+        backgroundColor: '#6366F1',
       },
       edgeToEdgeEnabled: true,
       permissions: [
@@ -66,6 +66,7 @@ module.exports = ({ config }) => {
       'expo-router',
       'expo-font',
       'expo-secure-store',
+      '@react-native-community/datetimepicker',
       [
         'expo-camera',
         {
@@ -85,7 +86,7 @@ module.exports = ({ config }) => {
           image: './assets/images/splash-icon.png',
           imageWidth: 200,
           resizeMode: 'contain',
-          backgroundColor: '#3B82F6',
+          backgroundColor: '#6366F1',
         },
       ],
     ],
