@@ -6,7 +6,7 @@ import { ScrollView, View, Text, Pressable, useColorScheme, Alert } from 'react-
 import { Ionicons } from '@expo/vector-icons';
 import type { Category } from '@voxpense/shared-types';
 
-import { Screen, Card, Button, Input, Sheet, LoadingView, EmptyView } from '../../src/components/glass';
+import { Screen, Button, Input, Sheet, LoadingView, EmptyView } from '../../src/components/glass';
 import {
   ColorSwatchPicker,
   FAB,
@@ -19,6 +19,7 @@ import {
   useCreateCategory,
   useDeleteCategory,
   useGroups,
+  useInsightsWindow,
   useUpdateCategory,
 } from '../../src/queries/insights';
 
@@ -47,10 +48,23 @@ export default function CategoriesScreen() {
   const update = useUpdateCategory();
   const remove = useDeleteCategory();
 
+  // 30-day expense window to compute per-category usage counts (mockup shows
+  // "42 expenses" / "28" beside each row).
+  const window = useInsightsWindow(30);
+
   const [draft, setDraft] = useState<DraftCategory | null>(null);
 
   const ink = isDark ? '#F8FAFC' : '#0F172A';
   const meta = isDark ? '#94A3B8' : '#64748B';
+
+  const usageByCat = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of window.expenses) {
+      if (!e.categoryId) continue;
+      m.set(e.categoryId, (m.get(e.categoryId) ?? 0) + 1);
+    }
+    return m;
+  }, [window.expenses]);
 
   const grouped = useMemo(() => {
     const byGroupId = new Map<string | null, Category[]>();
@@ -147,53 +161,69 @@ export default function CategoriesScreen() {
             if (list.length === 0) return null;
             return (
               <SectionGroup key={gid ?? 'ungrouped'} title={groupName(gid)}>
-                {list.map((c, idx) => (
-                  <Pressable
-                    key={c.id}
-                    onPress={() => openEdit(c)}
-                    style={[
-                      {
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingHorizontal: 14,
-                        paddingVertical: 12,
-                        borderBottomWidth: idx === list.length - 1 ? 0 : 1,
-                        borderBottomColor: isDark
-                          ? 'rgba(255,255,255,0.05)'
-                          : 'rgba(15,23,42,0.06)',
-                      },
-                    ]}
-                  >
-                    <View
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        backgroundColor: `${c.color}22`,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
+                {list.map((c, idx) => {
+                  const usage = usageByCat.get(c.id) ?? 0;
+                  return (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => openEdit(c)}
+                      style={[
+                        {
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                          borderBottomWidth: idx === list.length - 1 ? 0 : 1,
+                          borderBottomColor: isDark
+                            ? 'rgba(255,255,255,0.05)'
+                            : 'rgba(15,23,42,0.06)',
+                        },
+                      ]}
                     >
-                      <Ionicons
-                        name={(c.icon as keyof typeof Ionicons.glyphMap) || 'pricetag'}
-                        size={18}
-                        color={c.color}
-                      />
-                    </View>
-                    <Text
-                      style={{
-                        flex: 1,
-                        marginLeft: 12,
-                        fontSize: 15,
-                        fontWeight: '500',
-                        color: ink,
-                      }}
-                    >
-                      {c.name}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={meta} />
-                  </Pressable>
-                ))}
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          backgroundColor: `${c.color}26`,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons
+                          name={(c.icon as keyof typeof Ionicons.glyphMap) || 'pricetag'}
+                          size={16}
+                          color={c.color}
+                        />
+                      </View>
+                      <Text
+                        style={{
+                          flex: 1,
+                          marginLeft: 12,
+                          fontSize: 14,
+                          fontWeight: '600',
+                          color: ink,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {c.name}
+                      </Text>
+                      {usage > 0 && (
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            color: meta,
+                            marginRight: 8,
+                            fontVariant: ['tabular-nums'],
+                          }}
+                        >
+                          {usage}
+                        </Text>
+                      )}
+                      <Ionicons name="chevron-forward" size={16} color={meta} />
+                    </Pressable>
+                  );
+                })}
               </SectionGroup>
             );
           })}
