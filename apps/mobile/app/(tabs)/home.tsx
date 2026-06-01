@@ -10,6 +10,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
   View,
   useColorScheme,
@@ -194,15 +195,13 @@ export default function HomeScreen() {
           <Pressable
             onPress={() => router.push('/settings/reminders')}
             accessibilityLabel="Reminders"
-            style={({ pressed }) => ({
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)',
-              opacity: pressed ? 0.7 : 1,
-            })}
+            style={({ pressed }) => [
+              homeStyles.bellBtn,
+              {
+                backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,1)',
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
           >
             <Ionicons name="notifications-outline" size={20} color={ink} />
           </Pressable>
@@ -489,18 +488,13 @@ function ErrorBanner({
   return (
     <Pressable
       onPress={onRetry}
-      style={({ pressed }) => ({
-        marginTop: 8,
-        padding: 14,
-        borderRadius: 14,
-        backgroundColor: isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.10)',
-        borderWidth: 1,
-        borderColor: 'rgba(239,68,68,0.35)',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        opacity: pressed ? 0.85 : 1,
-      })}
+      style={({ pressed }) => [
+        homeStyles.errorBanner,
+        {
+          backgroundColor: isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.10)',
+          opacity: pressed ? 0.85 : 1,
+        },
+      ]}
     >
       <Ionicons name="alert-circle" size={18} color="#EF4444" />
       <Text style={{ flex: 1, color: isDark ? '#FECACA' : '#B91C1C', fontSize: 13 }}>
@@ -510,3 +504,23 @@ function ErrorBanner({
     </Pressable>
   );
 }
+
+const homeStyles = StyleSheet.create({
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorBanner: {
+    marginTop: 8,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+});
