@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { ScrollView, View, Text, Pressable, useColorScheme, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import type { Wallet, WalletKind } from '@voxpense/shared-types';
 
 import { Screen, Button, Input, Sheet, LoadingView, EmptyView } from '../../src/components/glass';
@@ -18,20 +17,22 @@ import {
 import { useAuth } from '../../src/store/auth';
 import { formatCurrency } from '../../src/lib/format';
 
+// Mockup gradient palette: card purple, cash green, upi orange/red, bank blue,
+// other grey. Two-stop gradients with darker bottom-right anchor.
 const KIND_GRADIENTS: Record<WalletKind, [string, string]> = {
   cash: ['#10B981', '#059669'],
-  card: ['#6366F1', '#4338CA'],
+  card: ['#8B5CF6', '#6D28D9'],
   upi: ['#F59E0B', '#DC2626'],
-  bank: ['#0EA5E9', '#0369A1'],
-  other: ['#8B5CF6', '#6D28D9'],
+  bank: ['#3B82F6', '#1D4ED8'],
+  other: ['#64748B', '#334155'],
 };
 
-const KIND_ICONS: Record<WalletKind, keyof typeof Ionicons.glyphMap> = {
-  cash: 'cash-outline',
-  card: 'card-outline',
-  upi: 'phone-portrait-outline',
-  bank: 'business-outline',
-  other: 'wallet-outline',
+const KIND_LABELS: Record<WalletKind, string> = {
+  cash: 'Cash',
+  card: 'Card',
+  upi: 'UPI',
+  bank: 'Bank',
+  other: 'Other',
 };
 
 interface DraftWallet {
@@ -146,7 +147,7 @@ export default function WalletsScreen() {
               <Pressable
                 key={w.id}
                 onPress={() => openEdit(w)}
-                style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
+                style={[{ borderRadius: 24 }]}
               >
                 <LinearGradient
                   colors={grad}
@@ -163,44 +164,47 @@ export default function WalletsScreen() {
                     elevation: 6,
                   }}
                 >
+                  {/* Decorative blob — matches mockup `absolute -top-12 -right-12 w-40 h-40 bg-white/20 rounded-full`. */}
                   <View
+                    pointerEvents="none"
                     style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
+                      position: 'absolute',
+                      top: -48,
+                      right: -48,
+                      width: 160,
+                      height: 160,
+                      borderRadius: 80,
+                      backgroundColor: 'rgba(255,255,255,0.2)',
                     }}
-                  >
-                    <View>
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontWeight: '600',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.8,
-                          color: 'rgba(255,255,255,0.8)',
-                        }}
-                      >
-                        {w.kind}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 18,
-                          fontWeight: '700',
-                          color: '#FFFFFF',
-                          marginTop: 2,
-                        }}
-                      >
-                        {w.name}
-                      </Text>
-                    </View>
-                    <Ionicons name={KIND_ICONS[w.kind]} size={24} color="rgba(255,255,255,0.9)" />
-                  </View>
+                  />
                   <Text
                     style={{
-                      fontSize: 24,
+                      fontSize: 11,
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.8,
+                      color: 'rgba(255,255,255,0.8)',
+                    }}
+                  >
+                    {KIND_LABELS[w.kind]}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 20,
                       fontWeight: '700',
                       color: '#FFFFFF',
-                      marginTop: 24,
+                      marginTop: 4,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {w.name}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 26,
+                      fontWeight: '700',
+                      color: '#FFFFFF',
+                      marginTop: 20,
                     }}
                   >
                     {formatCurrency(w.openingBalance, w.currency || currency)}
@@ -208,8 +212,8 @@ export default function WalletsScreen() {
                   <Text
                     style={{
                       fontSize: 11,
-                      color: 'rgba(255,255,255,0.7)',
-                      marginTop: 2,
+                      color: 'rgba(255,255,255,0.8)',
+                      marginTop: 4,
                     }}
                   >
                     Opening balance · {w.currency || currency}
