@@ -90,7 +90,7 @@ module.exports = ({ config }) => {
       ],
     ],
     experiments: {
-      typedRoutes: true,
+      typedRoutes: false,
     },
     extra: {
       env,
