@@ -1,7 +1,7 @@
 // AuthSegmented — Sign in / Sign up segmented toggle from mockup 02/03.
 // Active segment: white card on light, surf-d0 on dark, with subtle shadow.
 
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 
 interface AuthSegmentedProps {
   active: 'signin' | 'signup';
@@ -17,14 +17,7 @@ export function AuthSegmented({ active, onChange }: AuthSegmentedProps) {
   const meta = isDark ? '#94A3B8' : '#64748B';
 
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        backgroundColor: trackBg,
-        borderRadius: 14,
-        padding: 4,
-      }}
-    >
+    <View style={[styles.track, { backgroundColor: trackBg }]}>
       {(['signin', 'signup'] as const).map((key) => {
         const isActive = active === key;
         return (
@@ -33,20 +26,17 @@ export function AuthSegmented({ active, onChange }: AuthSegmentedProps) {
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
             onPress={() => onChange(key)}
-            style={({ pressed }) => ({
-              flex: 1,
-              height: 40,
-              borderRadius: 10,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: isActive ? activeBg : 'transparent',
-              shadowColor: isActive ? '#000' : 'transparent',
-              shadowOpacity: isActive ? 0.06 : 0,
-              shadowRadius: isActive ? 6 : 0,
-              shadowOffset: { width: 0, height: 2 },
-              elevation: isActive ? 2 : 0,
-              opacity: pressed ? 0.85 : 1,
-            })}
+            style={[
+              styles.seg,
+              {
+                backgroundColor: isActive ? activeBg : 'transparent',
+                shadowColor: isActive ? '#000' : 'transparent',
+                shadowOpacity: isActive ? 0.06 : 0,
+                shadowRadius: isActive ? 6 : 0,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: isActive ? 2 : 0,
+              },
+            ]}
           >
             <Text
               style={{
@@ -63,3 +53,18 @@ export function AuthSegmented({ active, onChange }: AuthSegmentedProps) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  track: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    padding: 4,
+  },
+  seg: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

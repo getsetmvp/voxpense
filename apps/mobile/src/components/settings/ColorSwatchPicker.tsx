@@ -1,6 +1,6 @@
 // Color swatch picker — grid of preset colors w/ selection ring.
 
-import { View, Pressable } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 
 interface ColorSwatchPickerProps {
   value: string;
@@ -25,30 +25,43 @@ export const SWATCHES = [
 
 export function ColorSwatchPicker({ value, onChange, colors = SWATCHES }: ColorSwatchPickerProps) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+    <View style={styles.grid}>
       {colors.map((c) => {
         const selected = c.toLowerCase() === value.toLowerCase();
         return (
           <Pressable
             key={c}
             onPress={() => onChange(c)}
-            style={({ pressed }) => ({
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: c,
-              borderWidth: selected ? 3 : 0,
-              borderColor: '#FFFFFF',
-              opacity: pressed ? 0.7 : 1,
-              shadowColor: c,
-              shadowOpacity: selected ? 0.5 : 0,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: selected ? 6 : 0,
-            })}
+            style={({ pressed }) => [
+              styles.swatch,
+              {
+                backgroundColor: c,
+                borderWidth: selected ? 3 : 0,
+                borderColor: '#FFFFFF',
+                opacity: pressed ? 0.7 : 1,
+                shadowColor: c,
+                shadowOpacity: selected ? 0.5 : 0,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: selected ? 6 : 0,
+              },
+            ]}
           />
         );
       })}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  swatch: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+});
