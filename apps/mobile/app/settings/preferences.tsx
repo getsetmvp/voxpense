@@ -1,10 +1,10 @@
 // Preferences screen — theme, base currency, voice toggles. Patches via users.update.
 
 import { useState } from 'react';
-import { ScrollView, View, Text, Alert, useColorScheme } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ScrollView, View, Text, Pressable, Alert, useColorScheme } from 'react-native';
+import { Ionicons, Feather } from '@expo/vector-icons';
 
-import { Screen } from '../../src/components/glass';
+import { Screen, Sheet } from '../../src/components/glass';
 import {
   NavRow,
   ScreenHeader,
@@ -15,7 +15,23 @@ import {
 import { users } from '../../src/lib/endpoints';
 import { useAuth } from '../../src/store/auth';
 
-const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'AED', 'JPY'];
+interface CurrencyOption {
+  code: string;
+  name: string;
+  symbol: string;
+}
+
+const CURRENCIES: CurrencyOption[] = [
+  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+  { code: 'USD', name: 'US Dollar', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+  { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
+  { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
+  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+];
 
 export default function PreferencesScreen() {
   const scheme = useColorScheme() ?? 'light';
@@ -27,6 +43,7 @@ export default function PreferencesScreen() {
   const [saving, setSaving] = useState(false);
   const [pickingCurrency, setPickingCurrency] = useState(false);
 
+  const ink = isDark ? '#F8FAFC' : '#0F172A';
   const meta = isDark ? '#94A3B8' : '#64748B';
   const iconColor = isDark ? '#CBD5E1' : '#334155';
 
@@ -99,52 +116,9 @@ export default function PreferencesScreen() {
             icon={<Ionicons name="globe-outline" size={20} color={iconColor} />}
             label="Base currency"
             badge={user.baseCurrency}
-            onPress={() => setPickingCurrency((v) => !v)}
-            isLast={!pickingCurrency}
+            onPress={() => setPickingCurrency(true)}
+            isLast
           />
-          {pickingCurrency && (
-            <View
-              style={{
-                paddingHorizontal: 14,
-                paddingBottom: 14,
-                paddingTop: 4,
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: 8,
-              }}
-            >
-              {CURRENCIES.map((c) => {
-                const selected = c === user.baseCurrency;
-                return (
-                  <View
-                    key={c}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 999,
-                      backgroundColor: selected
-                        ? isDark ? '#60A5FA' : '#3B82F6'
-                        : isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.9)',
-                    }}
-                  >
-                    <Text
-                      onPress={() => {
-                        patch({ baseCurrency: c });
-                        setPickingCurrency(false);
-                      }}
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '600',
-                        color: selected ? '#FFFFFF' : isDark ? '#CBD5E1' : '#334155',
-                      }}
-                    >
-                      {c}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
         </SectionGroup>
 
         <SectionGroup title="Voice capture">
@@ -181,6 +155,85 @@ export default function PreferencesScreen() {
           Changes save instantly.
         </Text>
       </ScrollView>
+
+      <Sheet open={pickingCurrency} onClose={() => setPickingCurrency(false)}>
+        <Text
+          style={{
+            fontSize: 17,
+            fontWeight: '700',
+            marginBottom: 12,
+            color: ink,
+          }}
+        >
+          Base currency
+        </Text>
+        <View style={{ gap: 6 }}>
+          {CURRENCIES.map((c) => {
+            const selected = c.code === user.baseCurrency;
+            return (
+              <Pressable
+                key={c.code}
+                onPress={() => {
+                  setPickingCurrency(false);
+                  if (!selected) patch({ baseCurrency: c.code });
+                }}
+                style={[
+                  {
+                    padding: 12,
+                    borderRadius: 16,
+                    borderWidth: selected ? 2 : 1,
+                    borderColor: selected
+                      ? isDark
+                        ? '#60A5FA'
+                        : '#3B82F6'
+                      : isDark
+                        ? 'rgba(255,255,255,0.06)'
+                        : 'rgba(15,23,42,0.06)',
+                    backgroundColor: selected
+                      ? isDark
+                        ? 'rgba(96,165,250,0.12)'
+                        : 'rgba(59,130,246,0.08)'
+                      : 'transparent',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: isDark
+                      ? 'rgba(31,41,55,0.7)'
+                      : 'rgba(241,244,248,0.9)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: ink }}>
+                    {c.symbol}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: ink }}>
+                    {c.code}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: meta }}>{c.name}</Text>
+                </View>
+                {selected && (
+                  <Feather
+                    name="check"
+                    size={20}
+                    color={isDark ? '#60A5FA' : '#3B82F6'}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Sheet>
     </Screen>
   );
 }
