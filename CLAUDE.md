@@ -11,7 +11,7 @@ Context for Claude when working in this repo.
 
 ## What this repo is
 
-Voice-first personal expense tracker. Expo SDK 53 mobile app + voxpense tenant inside the shared NestJS backend at `~/Projects/server`. Phase 6.6 complete — every screen rebuilt against the locked hi-fi mockups, dev client running on Android emulator, backend live, seeded test data persists.
+Voice-first personal expense tracker. Expo SDK 54 mobile app + voxpense tenant inside the shared NestJS backend at `~/Projects/server`. **MVP-design rebuild complete (2026-06-01)** — the earlier glassmorphism mockup was deprecated; the entire UI layer was rewritten against the v0 MVP design language at `~/Apps/voxpense/docs/design/mockups/index.html` (now canonicalized at `~/productivity/hustle/voxpense/mockups/index.html`). 22 screens working light + dark; backend untouched. Ready for **Phase 7 (preview APK to physical device)**.
 
 ## Required reading
 
@@ -19,10 +19,11 @@ Voice-first personal expense tracker. Expo SDK 53 mobile app + voxpense tenant i
 - **Repo type**: `frontend-mobile`
 - **Type spec**: `~/productivity/standards/frontend-mobile.md`
 - **OTA system**: `~/productivity/standards/cloudflare-ota.md`
-- **Pipeline**: `~/productivity/standards/app-development-pipeline.md` (10 phases, currently Phase 6.6, next is 7)
+- **Pipeline**: `~/productivity/standards/app-development-pipeline.md` (10 phases, MVP-rebuild done, next is Phase 7 APK)
 - **Env files**: `~/productivity/standards/env-files.md`
-- **Design (FROZEN)**: `~/productivity/hustle/voxpense/design.md`
-- **Hi-fi mockups (PIXEL TARGET)**: `~/productivity/hustle/voxpense/mockups/index.html` (browser-viewable, 28 phone frames)
+- **Design (FROZEN — MVP)**: `~/productivity/hustle/voxpense/mockups/index.html` (MVP visual language, canonical)
+- **Design history**: `~/productivity/hustle/voxpense/mockups/index-glass-deprecated.html` (old glassmorphism, do not use)
+- **Rebuild hand-off**: `~/productivity/hustle/voxpense/REBUILD_HANDOFF.md` (test plan + caveats)
 
 When proposing changes, follow design.md. **The design is FROZEN** — changes require ADR.
 
@@ -32,10 +33,11 @@ When proposing changes, follow design.md. **The design is FROZEN** — changes r
 2. `README.md` (project intro + build status table)
 3. `CONVENTIONS.md` (commit / branch rules)
 4. `~/productivity/hustle/voxpense/design.md` (full spec)
-5. `~/productivity/hustle/voxpense/mockups/index.html` (pixel target — open in browser)
+5. `~/productivity/hustle/voxpense/mockups/index.html` (canonical MVP design — open in browser)
 6. `packages/shared-types/src/index.ts` (DTOs locked, mirror of server)
 7. `apps/mobile/src/lib/api.ts` + `apps/mobile/src/lib/endpoints.ts` (fetch wrapper + typed namespaces)
-8. `apps/mobile/src/components/glass/index.ts` (foundation primitives)
+8. `apps/mobile/src/components/ui/index.ts` + `src/components/layout/index.ts` (foundation primitives)
+9. `apps/mobile/src/theme/ThemeProvider.tsx` (theme tokens + `useTheme()`)
 
 ## Project layout
 
@@ -50,14 +52,22 @@ apps/mobile/
 │   ├── expense/[id].tsx          expense detail/edit
 │   └── settings/                 profile, preferences, wallets, categories, groups, budgets, recurring, reminders, privacy, about
 ├── src/
-│   ├── components/glass/         FOUNDATION — never regress
-│   ├── components/{auth,home,expense,capture,insights,settings}/
+│   ├── components/ui/            FOUNDATION primitives (Button/Card/Chip/Input/ListItem/Sheet/Skeleton/Toast/Banner/Amount/ConfirmDialog/EmptyState)
+│   ├── components/layout/        Screen/Header/SectionHeader/Dots/FabStack
+│   ├── components/feature/       ExpenseRow + FilterSheet (composed feature widgets)
+│   ├── components/ErrorBoundary.tsx
 │   ├── lib/api.ts                fetch wrapper + auto-refresh (DO NOT bypass)
 │   ├── lib/endpoints.ts          typed API namespaces
 │   ├── lib/format.ts             currency + date helpers
 │   ├── lib/insights.ts           pure aggregation (testable, no React)
+│   ├── lib/money.ts              symbolOf / formatMoney / splitMoney
+│   ├── lib/currencies.ts         SEED_CURRENCIES catalogue
+│   ├── lib/speechRecognition.ts  Expo Go shim for expo-speech-recognition
 │   ├── store/auth.ts             Zustand auth state
+│   ├── store/theme.ts            Zustand theme mode (auto/light/dark)
 │   ├── queries/{expenses,insights}.ts   React Query hooks
+│   ├── theme/tokens.ts           lightTokens + darkTokens (MVP palette)
+│   └── theme/ThemeProvider.tsx   useTheme() → { tokens, mode, resolved, setMode }
 │   ├── query/client.ts           QueryClient + qk registry
 │   ├── theme/tokens.ts           spacing / radii / motion / shadows
 │   └── styles/global.css         NativeWind entry
@@ -80,7 +90,8 @@ packages/shared-types/src/index.ts   DTOs shared mobile ↔ server
 - **Auth state via Zustand** (`src/store/auth.ts`) — secure tokens in `expo-secure-store` (NEVER AsyncStorage)
 - **Expo Router for navigation** — file-based, never `@react-navigation/native` directly
 - **NativeWind v4** for styling — className strings, palette from `tailwind.config.ts`
-- **Foundation components** — `Screen` / `Card` / `Button` / `Input` / `Sheet` / `LoadingView` / `EmptyView` / `ErrorView` from `src/components/glass`. Never reinvent.
+- **Foundation components** — `Screen` / `Header` / `Card` / `Button` / `Input` / `ListItem` / `Sheet` / `Chip` / `Amount` / `Banner` / `EmptyState` / `ConfirmDialog` / `Toast` from `src/components/ui` + `src/components/layout`. Never reinvent.
+- **Colors via `useTheme().tokens`** — never hardcode hex strings outside `src/theme/tokens.ts` + `tailwind.config.ts`. Brand is `tokens.brand` (indigo).
 - **AI calls via server** — never call `ai.askchimps.ai` directly. Use `ai.*` from `src/lib/endpoints.ts`.
 - **API calls via `src/lib/endpoints.ts`** — never raw fetch
 - **Pressable styles** — STATIC array-form only for layout-bearing Pressables (see "Critical no-go's" below)
