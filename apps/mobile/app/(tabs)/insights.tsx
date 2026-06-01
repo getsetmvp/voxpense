@@ -1,482 +1,465 @@
-// Insights tab — pixel-aligned to mockup section 7, screen 16 (with spec
-// add-ons: 2 metric tiles + daily-spend chart per Agent L hard requirements).
-//
-// Layout (top → bottom):
-//   1. "Insights" page title
-//   2. Hero glass card — "This month" spend w/ overall-budget progress
-//   3. 2 metric tiles — This week, This month (delta-aware)
-//   4. Daily spend bar chart (14 days)
-//   5. Mini budgets list (top 2 non-overall, link to /settings/budgets)
-//   6. Spend by category donut + legend
-//   7. Top merchants list (45-day window)
-//   8. AI Ask card
+// Insights / Reports tab — mockup 20.
+// Period picker (Week / Month / Year), total + delta vs previous,
+// daily spend bar chart (simple Views), top categories w/ progress, top merchants.
+// No AI Ask panel here — it's its own tab.
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  ScrollView,
-  View,
-  Text,
   Pressable,
-  useColorScheme,
   RefreshControl,
+  ScrollView,
+  Text,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { TrendingDown, TrendingUp } from 'lucide-react-native';
 
-import { Screen, Card, LoadingView, EmptyView, ErrorView } from '../../src/components/glass';
-import {
-  AskInput,
-  BarChart,
-  DonutChart,
-  MetricTile,
-} from '../../src/components/insights';
+import { Screen } from '../../src/components/layout/Screen';
+import { Amount } from '../../src/components/ui/Amount';
+import { Chip } from '../../src/components/ui/Chip';
+import { EmptyState } from '../../src/components/ui/EmptyState';
+import { SectionHeader } from '../../src/components/layout/SectionHeader';
+import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAuth } from '../../src/store/auth';
 import {
-  useBudgetProgress,
-  useDailySpend,
   useExpensesByCategory,
   useInsightsWindow,
-  usePeriodTotals,
   useTopMerchants,
 } from '../../src/queries/insights';
-import { formatCompact, formatCurrency } from '../../src/lib/format';
-import type { BudgetProgress } from '../../src/lib/insights';
+import { formatCurrency } from '../../src/lib/format';
+import { sumByDay, sumBetween, toNumber } from '../../src/lib/insights';
 
-// "section header" style — uppercased + tracked, mirrors mockup `.section-h`.
-const SECTION_HEADER_LIGHT = {
-  fontSize: 11,
-  fontWeight: '600' as const,
-  textTransform: 'uppercase' as const,
-  letterSpacing: 0.6,
-  color: '#64748B',
-};
-const SECTION_HEADER_DARK = { ...SECTION_HEADER_LIGHT, color: '#94A3B8' };
+type Period = 'week' | 'month' | 'year';
 
-function statusColors(p: BudgetProgress | undefined): {
-  color: string;
-  label: string;
-  bgRgba: string;
+const PERIODS: { id: Period; label: string; days: number; barDays: number }[] = [
+  { id: 'week', label: 'Week', days: 14, barDays: 7 },
+  { id: 'month', label: 'Month', days: 60, barDays: 30 },
+  { id: 'year', label: 'Year', days: 365, barDays: 12 },
+];
+
+function periodWindow(period: Period, now: Date = new Date()): {
+  curFrom: Date;
+  curTo: Date;
+  prevFrom: Date;
+  prevTo: Date;
 } {
-  if (!p) return { color: '#64748B', label: '0%', bgRgba: 'rgba(100,116,139,0.18)' };
-  const pct = Math.round(p.pct * 100);
-  if (p.status === 'bad') {
-    return { color: '#EF4444', label: `${pct}%`, bgRgba: 'rgba(239,68,68,0.15)' };
+  const curTo = new Date(now);
+  curTo.setHours(23, 59, 59, 999);
+  if (period === 'week') {
+    const curFrom = new Date(curTo);
+    curFrom.setDate(curFrom.getDate() - 6);
+    curFrom.setHours(0, 0, 0, 0);
+    const prevTo = new Date(curFrom);
+    prevTo.setMilliseconds(prevTo.getMilliseconds() - 1);
+    const prevFrom = new Date(prevTo);
+    prevFrom.setDate(prevFrom.getDate() - 6);
+    prevFrom.setHours(0, 0, 0, 0);
+    return { curFrom, curTo, prevFrom, prevTo };
   }
-  if (p.status === 'warn') {
-    return { color: '#F59E0B', label: `${pct}%`, bgRgba: 'rgba(245,158,11,0.15)' };
+  if (period === 'month') {
+    const curFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevTo = new Date(now.getFullYear(), now.getMonth(), 1);
+    prevTo.setMilliseconds(prevTo.getMilliseconds() - 1);
+    return { curFrom, curTo, prevFrom, prevTo };
   }
-  return { color: '#10B981', label: `${pct}%`, bgRgba: 'rgba(16,185,129,0.15)' };
+  // year
+  const curFrom = new Date(now.getFullYear(), 0, 1);
+  const prevFrom = new Date(now.getFullYear() - 1, 0, 1);
+  const prevTo = new Date(now.getFullYear(), 0, 1);
+  prevTo.setMilliseconds(prevTo.getMilliseconds() - 1);
+  return { curFrom, curTo, prevFrom, prevTo };
 }
 
-const PRESSABLE_OPACITY_STYLE = ({ pressed }: { pressed: boolean }) => ({
-  opacity: pressed ? 0.7 : 1,
-});
-
-export default function InsightsScreen() {
-  const router = useRouter();
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
+export default function InsightsTab() {
+  const { tokens } = useTheme();
   const user = useAuth((s) => s.user);
   const currency = user?.baseCurrency ?? 'INR';
 
-  const window = useInsightsWindow(45);
-  const totals = usePeriodTotals(window.expenses);
-  const byCategory = useExpensesByCategory(window.expenses);
-  const dailySpend = useDailySpend(window.expenses, 14);
-  const topMerchants = useTopMerchants(window.expenses, 5);
-  const { rows: budgetRows } = useBudgetProgress();
+  const [period, setPeriod] = useState<Period>('month');
+  const cfg = PERIODS.find((p) => p.id === period) ?? PERIODS[1];
 
-  const overall = useMemo(
-    () => budgetRows.find((r) => r.budget.scope === 'overall'),
-    [budgetRows],
+  const win = useInsightsWindow(cfg.days);
+  const expenses = win.expenses;
+
+  // Filter to current vs previous-period windows for delta math
+  const { curFrom, curTo, prevFrom, prevTo } = useMemo(
+    () => periodWindow(period),
+    [period],
   );
-  const miniBudgets = useMemo(
-    () => budgetRows.filter((r) => r.budget.scope !== 'overall').slice(0, 2),
-    [budgetRows],
+  const curExpenses = useMemo(
+    () => expenses.filter((e) => {
+      const t = new Date(e.occurredAt).getTime();
+      return t >= curFrom.getTime() && t <= curTo.getTime();
+    }),
+    [expenses, curFrom, curTo],
   );
-  const topCats = useMemo(() => byCategory.slice(0, 5), [byCategory]);
 
-  if (window.isLoading) {
-    return (
-      <Screen>
-        <LoadingView label="Crunching numbers..." />
-      </Screen>
-    );
-  }
-  if (window.isError && window.expenses.length === 0) {
-    return (
-      <Screen>
-        <ErrorView
-          title="Couldn't load insights"
-          message="Pull to retry or check connection."
-          onRetry={() => window.refetch()}
-        />
-      </Screen>
-    );
-  }
-  if (window.expenses.length === 0) {
-    return (
-      <Screen>
-        <EmptyView
-          title="No expenses yet"
-          body="Log your first expense to see your spending insights, categories and trends."
-        />
-      </Screen>
-    );
-  }
+  const total = useMemo(
+    () => curExpenses.reduce((a, b) => a + toNumber(b.amount), 0),
+    [curExpenses],
+  );
+  const prevTotal = useMemo(
+    () => sumBetween(expenses, prevFrom, prevTo),
+    [expenses, prevFrom, prevTo],
+  );
+  const delta = prevTotal > 0 ? (total - prevTotal) / prevTotal : 0;
+  const deltaUp = delta >= 0;
 
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
-  const meta = isDark ? '#94A3B8' : '#64748B';
-  const sectionH = isDark ? SECTION_HEADER_DARK : SECTION_HEADER_LIGHT;
-  const surf = isDark ? '#0F172A' : '#FFFFFF';
-  const surfBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)';
-  const divider = isDark ? '#1F2937' : '#F1F4F8';
+  // Daily spend bars
+  const dailyBars = useMemo(() => {
+    const series = sumByDay(curExpenses, cfg.barDays);
+    const max = Math.max(1, ...series.map((b) => b.total));
+    return series.map((b) => ({
+      key: b.key,
+      label: b.date.getDate().toString(),
+      value: b.total,
+      heightPct: Math.max(0.04, b.total / max),
+    }));
+  }, [curExpenses, cfg.barDays]);
 
-  const overallChip = statusColors(overall);
-  const heroSpent = overall ? overall.spent : totals.thisMonth;
-  const heroTotal = overall ? Number(overall.budget.amount) : 0;
-  const heroPct = overall ? Math.min(1, overall.pct) : 0;
-  const dailyTotal = dailySpend.reduce((acc, b) => acc + b.total, 0);
+  // Top categories
+  const byCategory = useExpensesByCategory(curExpenses);
+  const topCats = byCategory.slice(0, 5);
+  const catTotal = topCats.reduce((a, b) => a + b.total, 0);
+
+  // Top merchants
+  const topMerchants = useTopMerchants(curExpenses, 5);
+
+  const previousLabel =
+    period === 'week'
+      ? 'last week'
+      : period === 'month'
+        ? 'last month'
+        : 'last year';
 
   return (
-    <Screen>
-      <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 140, gap: 16 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={window.isLoading}
-            onRefresh={() => window.refetch()}
-            tintColor={isDark ? '#60A5FA' : '#3B82F6'}
-          />
-        }
+    <Screen edges={['top']}>
+      <View
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 8,
+          paddingBottom: 12,
+        }}
       >
-        {/* Page title */}
-        <Text style={{ fontSize: 22, fontWeight: '700', color: ink, paddingTop: 4 }}>
+        <Text style={{ fontSize: 24, fontWeight: '700', color: tokens.ink }}>
           Insights
         </Text>
+      </View>
 
-        {/* Hero "this month" glass card with overall-budget progress */}
-        <Card intensity="md">
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text style={sectionH}>This month</Text>
-            {overall && (
-              <View
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 3,
-                  borderRadius: 999,
-                  backgroundColor: overallChip.bgRgba,
-                }}
-              >
-                <Text style={{ fontSize: 11, fontWeight: '600', color: overallChip.color }}>
-                  {overallChip.label}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text style={{ fontSize: 32, fontWeight: '700', color: ink, marginTop: 4 }}>
-            {formatCurrency(heroSpent, currency)}
-          </Text>
-          <Text style={{ fontSize: 11, color: meta, marginTop: 2 }}>
-            {overall
-              ? `of ${formatCurrency(heroTotal, currency)} budget`
-              : 'No overall budget set'}
-          </Text>
-          {overall && (
-            <View
-              style={{
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: divider,
-                marginTop: 12,
-                overflow: 'hidden',
-              }}
-            >
-              <View
-                style={{
-                  height: '100%',
-                  width: `${Math.round(heroPct * 100)}%`,
-                  backgroundColor: overallChip.color,
-                }}
-              />
-            </View>
-          )}
-        </Card>
-
-        {/* Two metric tiles — week + month */}
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1 }}>
-            <MetricTile
-              label="This week"
-              value={formatCompact(totals.thisWeek, currency)}
-              delta={totals.lastWeek > 0 ? { value: totals.weekDelta } : null}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <MetricTile
-              label="This month"
-              value={formatCompact(totals.thisMonth, currency)}
-              delta={totals.lastMonth > 0 ? { value: totals.monthDelta } : null}
-            />
-          </View>
-        </View>
-
-        {/* Daily spend bar chart */}
-        <View>
-          <Text style={[sectionH, { marginBottom: 8 }]}>Daily spend · last 14 days</Text>
-          <View
-            style={{
-              padding: 16,
-              borderRadius: 20,
-              backgroundColor: surf,
-              borderWidth: 1,
-              borderColor: surfBorder,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 18,
-                fontWeight: '700',
-                color: ink,
-                marginBottom: 12,
-              }}
-            >
-              {formatCurrency(dailyTotal, currency)}
-            </Text>
-            <BarChart
-              data={dailySpend.map((b, i) => ({
-                label: b.date.getDate().toString(),
-                value: b.total,
-                highlight: i === dailySpend.length - 1,
-              }))}
-              height={96}
-            />
-          </View>
-        </View>
-
-        {/* Mini budgets (top 2, non-overall) */}
-        {miniBudgets.length > 0 && (
-          <View>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                marginBottom: 8,
-              }}
-            >
-              <Text style={sectionH}>Budgets</Text>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={win.isLoading}
+            onRefresh={() => win.refetch()}
+            tintColor={tokens.brand}
+            colors={[tokens.brand]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Period picker */}
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 6,
+            marginBottom: 16,
+          }}
+        >
+          {PERIODS.map((p) => {
+            const active = period === p.id;
+            return (
               <Pressable
-                onPress={() => router.push('/settings/budgets')}
-                style={PRESSABLE_OPACITY_STYLE}
-                accessibilityRole="link"
+                key={p.id}
+                onPress={() => setPeriod(p.id)}
+                style={{
+                  flex: 1,
+                  height: 36,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: active ? tokens.brand : tokens.border,
+                  backgroundColor: active ? `${tokens.brand}1A` : tokens.surface,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <Text style={{ fontSize: 11, fontWeight: '600', color: '#3B82F6' }}>
-                  See all →
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '600',
+                    color: active ? tokens.brand : tokens.ink,
+                  }}
+                >
+                  {p.label}
                 </Text>
               </Pressable>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              {miniBudgets.map((b) => {
-                const chip = statusColors(b);
-                const pct = Math.round(Math.min(100, b.pct * 100));
-                return (
+            );
+          })}
+        </View>
+
+        {win.expenses.length === 0 && !win.isLoading ? (
+          <EmptyState
+            title="No expenses yet"
+            body="Log your first expense to see your spending insights."
+          />
+        ) : (
+          <>
+            {/* Total + delta card */}
+            <View
+              style={{
+                borderRadius: 16,
+                backgroundColor: tokens.surface,
+                borderWidth: 1,
+                borderColor: tokens.border,
+                padding: 16,
+                marginBottom: 16,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: tokens.muted,
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Total spend
+                </Text>
+                {prevTotal > 0 ? (
+                  <Chip
+                    label={`${deltaUp ? '+' : ''}${Math.round(delta * 100)}% vs ${previousLabel}`}
+                    variant={deltaUp ? 'warn' : 'good'}
+                    icon={
+                      deltaUp ? (
+                        <TrendingUp size={10} color={tokens.warn} />
+                      ) : (
+                        <TrendingDown size={10} color={tokens.good} />
+                      )
+                    }
+                  />
+                ) : null}
+              </View>
+              <View style={{ marginTop: 6 }}>
+                <Amount value={total} currency={currency} size={28} weight="700" />
+              </View>
+
+              {/* Daily spend bar chart */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: 4,
+                  alignItems: 'flex-end',
+                  height: 96,
+                  marginTop: 16,
+                }}
+              >
+                {dailyBars.map((b) => (
                   <View
-                    key={b.budget.id}
+                    key={b.key}
                     style={{
                       flex: 1,
-                      padding: 12,
-                      borderRadius: 16,
-                      backgroundColor: surf,
-                      borderWidth: 1,
-                      borderColor: surfBorder,
+                      height: `${b.heightPct * 100}%`,
+                      backgroundColor: `${tokens.brand}66`,
+                      borderRadius: 6,
                     }}
-                  >
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <Text
-                        style={{ fontSize: 13, fontWeight: '600', color: ink, flex: 1 }}
-                        numberOfLines={1}
-                      >
-                        {b.budget.name}
-                      </Text>
-                      <View
-                        style={{
-                          paddingHorizontal: 8,
-                          paddingVertical: 2,
-                          borderRadius: 999,
-                          backgroundColor: chip.bgRgba,
-                          marginLeft: 6,
-                        }}
-                      >
-                        <Text style={{ fontSize: 10, fontWeight: '600', color: chip.color }}>
-                          {pct}%
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: ink, marginTop: 4 }}>
-                      {formatCurrency(b.spent, currency)}
-                      <Text style={{ fontSize: 10, color: meta, fontWeight: '400' }}>
-                        {' / '}
-                        {formatCurrency(b.budget.amount, currency)}
-                      </Text>
-                    </Text>
-                    <View
-                      style={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: divider,
-                        marginTop: 8,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <View
-                        style={{
-                          height: '100%',
-                          width: `${pct}%`,
-                          backgroundColor: chip.color,
-                        }}
-                      />
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Spend by category — donut + legend */}
-        <View>
-          <Text style={[sectionH, { marginBottom: 8 }]}>Spend by category</Text>
-          <View
-            style={{
-              padding: 16,
-              borderRadius: 20,
-              backgroundColor: surf,
-              borderWidth: 1,
-              borderColor: surfBorder,
-            }}
-          >
-            {topCats.length === 0 ? (
-              <Text style={{ fontSize: 13, color: meta }}>
-                No categorized spend in this window.
+                  />
+                ))}
+              </View>
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: tokens.muted,
+                  marginTop: 8,
+                  textAlign: 'center',
+                }}
+              >
+                Daily spend · last {cfg.barDays} days
               </Text>
-            ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                <DonutChart
-                  data={topCats.map((c) => ({ value: c.total, color: c.color }))}
-                  size={96}
-                  stroke={14}
-                  trackColor={isDark ? '#1F2937' : '#F1F4F8'}
-                />
-                <View style={{ flex: 1, gap: 6 }}>
-                  {topCats.map((c) => (
+            </View>
+
+            {/* Top categories */}
+            <SectionHeader>Top categories</SectionHeader>
+            <View
+              style={{
+                borderRadius: 16,
+                backgroundColor: tokens.surface,
+                borderWidth: 1,
+                borderColor: tokens.border,
+                overflow: 'hidden',
+                marginBottom: 16,
+              }}
+            >
+              {topCats.length === 0 ? (
+                <Text
+                  style={{
+                    padding: 20,
+                    color: tokens.muted,
+                    textAlign: 'center',
+                    fontSize: 13,
+                  }}
+                >
+                  No categorized spend in this window.
+                </Text>
+              ) : (
+                topCats.map((c, i) => {
+                  const pct = catTotal > 0 ? c.total / catTotal : 0;
+                  return (
                     <View
-                      key={c.categoryId ?? 'uncategorized'}
+                      key={c.categoryId ?? `u-${i}`}
                       style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
+                        padding: 14,
+                        borderTopWidth: i === 0 ? 0 : 1,
+                        borderTopColor: tokens.border,
                       }}
                     >
                       <View
                         style={{
                           flexDirection: 'row',
+                          justifyContent: 'space-between',
                           alignItems: 'center',
-                          gap: 8,
-                          flex: 1,
+                          marginBottom: 6,
                         }}
                       >
                         <View
                           style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 4,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 8,
+                            flex: 1,
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: 999,
+                              backgroundColor: c.color,
+                            }}
+                          />
+                          <Text
+                            style={{ fontWeight: '500', color: tokens.ink, fontSize: 14 }}
+                            numberOfLines={1}
+                          >
+                            {c.name}
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            fontWeight: '600',
+                            color: tokens.ink,
+                            fontVariant: ['tabular-nums'],
+                            fontSize: 13,
+                          }}
+                        >
+                          {formatCurrency(c.total, currency)}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          height: 6,
+                          backgroundColor: tokens.border,
+                          borderRadius: 999,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: `${Math.round(pct * 100)}%`,
+                            height: '100%',
                             backgroundColor: c.color,
                           }}
                         />
-                        <Text
-                          style={{ fontSize: 12, color: ink, flex: 1 }}
-                          numberOfLines={1}
-                        >
-                          {c.name}
-                        </Text>
                       </View>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: ink }}>
-                        {Math.round(c.share * 100)}%
-                      </Text>
                     </View>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
+                  );
+                })
+              )}
+            </View>
 
-        {/* Top merchants */}
-        <View>
-          <Text style={[sectionH, { marginBottom: 8 }]}>
-            Top merchants · last 45 days
-          </Text>
-          <View
-            style={{
-              padding: 16,
-              borderRadius: 20,
-              backgroundColor: surf,
-              borderWidth: 1,
-              borderColor: surfBorder,
-              gap: 10,
-            }}
-          >
-            {topMerchants.length === 0 ? (
-              <Text style={{ fontSize: 13, color: meta }}>Nothing here yet.</Text>
-            ) : (
-              topMerchants.map((m) => (
-                <View
-                  key={m.merchant}
+            {/* Top merchants */}
+            <SectionHeader>Top merchants</SectionHeader>
+            <View
+              style={{
+                borderRadius: 16,
+                backgroundColor: tokens.surface,
+                borderWidth: 1,
+                borderColor: tokens.border,
+                overflow: 'hidden',
+              }}
+            >
+              {topMerchants.length === 0 ? (
+                <Text
                   style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
+                    padding: 20,
+                    color: tokens.muted,
+                    textAlign: 'center',
+                    fontSize: 13,
                   }}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{ fontSize: 14, fontWeight: '500', color: ink }}
-                      numberOfLines={1}
+                  No data yet.
+                </Text>
+              ) : (
+                topMerchants.map((m, i) => (
+                  <View
+                    key={m.merchant}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 14,
+                      borderTopWidth: i === 0 ? 0 : 1,
+                      borderTopColor: tokens.border,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        backgroundColor: tokens.surface2,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
                     >
-                      {m.merchant}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: meta, marginTop: 2 }}>
-                      {m.count} {m.count === 1 ? 'expense' : 'expenses'}
+                      <Text style={{ fontWeight: '700', color: tokens.ink, fontSize: 12 }}>
+                        {i + 1}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={{ fontWeight: '500', color: tokens.ink, fontSize: 14 }}
+                        numberOfLines={1}
+                      >
+                        {m.merchant}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 2 }}>
+                        {m.count} {m.count === 1 ? 'visit' : 'visits'}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        fontWeight: '600',
+                        color: tokens.ink,
+                        fontVariant: ['tabular-nums'],
+                        fontSize: 14,
+                      }}
+                    >
+                      {formatCurrency(m.total, currency)}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: ink }}>
-                    {formatCurrency(m.total, currency)}
-                  </Text>
-                </View>
-              ))
-            )}
-          </View>
-        </View>
-
-        {/* AI Ask */}
-        <View>
-          <Text style={[sectionH, { marginBottom: 8 }]}>Ask</Text>
-          <Card intensity="sm">
-            <AskInput from={window.from} to={window.to} />
-          </Card>
-        </View>
+                ))
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
     </Screen>
   );

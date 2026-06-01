@@ -1,31 +1,38 @@
-// Wallets list — hero gradient card per kind. Tap to edit, FAB to add.
-// Balance shown as openingBalance for v1 (full balance computation deferred).
+// Wallets settings — list + inline new/edit sheet + delete confirm.
 
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, useColorScheme, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ScrollView, View, Text, Pressable } from 'react-native';
+import {
+  Banknote,
+  CreditCard,
+  Landmark,
+  Smartphone,
+  Wallet as WalletIcon,
+  Plus,
+} from 'lucide-react-native';
 import type { Wallet, WalletKind } from '@voxpense/shared-types';
 
-import { Screen, Button, Input, Sheet, LoadingView, EmptyView } from '../../src/components/glass';
-import { FAB, ScreenHeader, SegmentedControl } from '../../src/components/settings';
+import { Screen, Header } from '../../src/components/layout';
 import {
-  useCreateWallet,
-  useDeleteWallet,
-  useUpdateWallet,
+  Button,
+  Input,
+  ListItem,
+  Sheet,
+  EmptyState,
+  ConfirmDialog,
+  Skeleton,
+  useToast,
+} from '../../src/components/ui';
+import { useTheme } from '../../src/theme/ThemeProvider';
+import {
   useWallets,
+  useCreateWallet,
+  useUpdateWallet,
+  useDeleteWallet,
 } from '../../src/queries/insights';
 import { useAuth } from '../../src/store/auth';
-import { formatCurrency } from '../../src/lib/format';
-
-// Mockup gradient palette: card purple, cash green, upi orange/red, bank blue,
-// other grey. Two-stop gradients with darker bottom-right anchor.
-const KIND_GRADIENTS: Record<WalletKind, [string, string]> = {
-  cash: ['#10B981', '#059669'],
-  card: ['#8B5CF6', '#6D28D9'],
-  upi: ['#F59E0B', '#DC2626'],
-  bank: ['#3B82F6', '#1D4ED8'],
-  other: ['#64748B', '#334155'],
-};
+import { formatMoney } from '../../src/lib/money';
+import { SEED_CURRENCIES } from '../../src/lib/currencies';
 
 const KIND_LABELS: Record<WalletKind, string> = {
   cash: 'Cash',
@@ -35,51 +42,67 @@ const KIND_LABELS: Record<WalletKind, string> = {
   other: 'Other',
 };
 
-interface DraftWallet {
+const KIND_OPTIONS: WalletKind[] = ['cash', 'card', 'upi', 'bank', 'other'];
+
+function KindIcon({ kind, size = 18, color }: { kind: WalletKind; size?: number; color: string }) {
+  switch (kind) {
+    case 'cash':
+      return <Banknote size={size} color={color} />;
+    case 'card':
+      return <CreditCard size={size} color={color} />;
+    case 'upi':
+      return <Smartphone size={size} color={color} />;
+    case 'bank':
+      return <Landmark size={size} color={color} />;
+    default:
+      return <WalletIcon size={size} color={color} />;
+  }
+}
+
+interface Draft {
   id?: string;
   name: string;
   kind: WalletKind;
   openingBalance: string;
+  currency: string;
 }
 
-const DEFAULT_DRAFT: DraftWallet = {
-  name: '',
-  kind: 'cash',
-  openingBalance: '0',
-};
+export default function WalletsSettings() {
+  const { tokens } = useTheme();
+  const toast = useToast();
+  const baseCurrency = useAuth((s) => s.user?.baseCurrency ?? 'INR');
 
-export default function WalletsScreen() {
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
-  const user = useAuth((s) => s.user);
-  const currency = user?.baseCurrency ?? 'INR';
-
-  const wallets = useWallets();
+  const q = useWallets();
   const create = useCreateWallet();
   const update = useUpdateWallet();
   const remove = useDeleteWallet();
 
-  const [draft, setDraft] = useState<DraftWallet | null>(null);
-  const ink = isDark ? '#F8FAFC' : '#0F172A';
-  const meta = isDark ? '#94A3B8' : '#64748B';
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [pickCurrency, setPickCurrency] = useState(false);
 
-  const openEdit = (w: Wallet) => {
+  const wallets = q.data ?? [];
+
+  const openNew = () =>
+    setDraft({ name: '', kind: 'cash', openingBalance: '0', currency: baseCurrency });
+
+  const openEdit = (w: Wallet) =>
     setDraft({
       id: w.id,
       name: w.name,
       kind: w.kind,
-      openingBalance: w.openingBalance,
+      openingBalance: w.openingBalance ?? '0',
+      currency: w.currency ?? baseCurrency,
     });
-  };
 
   const submit = async () => {
     if (!draft) return;
     if (!draft.name.trim()) {
-      Alert.alert('Missing name', 'Add a wallet name.');
+      toast.show('Name required', 'bad');
       return;
     }
     if (Number.isNaN(Number(draft.openingBalance))) {
-      Alert.alert('Bad amount', 'Opening balance must be numeric.');
+      toast.show('Balance must be numeric', 'bad');
       return;
     }
     try {
@@ -87,160 +110,115 @@ export default function WalletsScreen() {
         await update.mutateAsync({
           id: draft.id,
           body: {
-            name: draft.name,
+            name: draft.name.trim(),
             kind: draft.kind,
             openingBalance: draft.openingBalance,
           },
         });
+        toast.show('Wallet saved', 'good');
       } else {
         await create.mutateAsync({
-          name: draft.name,
+          name: draft.name.trim(),
           kind: draft.kind,
-          currency,
+          currency: draft.currency,
           openingBalance: draft.openingBalance,
         });
+        toast.show('Wallet created', 'good');
       }
       setDraft(null);
     } catch (e) {
-      Alert.alert('Save failed', e instanceof Error ? e.message : 'Try again.');
+      toast.show(e instanceof Error ? e.message : 'Save failed', 'bad');
     }
   };
 
-  const confirmDelete = (id: string) => {
-    Alert.alert(
-      'Delete wallet?',
-      'This will fail if expenses reference this wallet.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await remove.mutateAsync(id);
-              setDraft(null);
-            } catch (e) {
-              Alert.alert('Delete failed', e instanceof Error ? e.message : 'Try again.');
-            }
-          },
-        },
-      ],
-    );
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    try {
+      await remove.mutateAsync(confirmDelete);
+      toast.show('Wallet deleted', 'good');
+      setConfirmDelete(null);
+      setDraft(null);
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Delete failed', 'bad');
+      setConfirmDelete(null);
+    }
   };
 
   return (
     <Screen>
-      <ScreenHeader title="Wallets" />
-      {wallets.isLoading ? (
-        <LoadingView />
-      ) : (wallets.data ?? []).length === 0 ? (
-        <EmptyView
-          title="No wallets yet"
-          body="Add cash, cards, bank accounts to track where your money lives."
-          action={{ label: 'Add wallet', onPress: () => setDraft({ ...DEFAULT_DRAFT }) }}
-        />
-      ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140, gap: 12 }}>
-          {(wallets.data ?? []).map((w) => {
-            const grad = KIND_GRADIENTS[w.kind];
-            return (
-              <Pressable
-                key={w.id}
-                onPress={() => openEdit(w)}
-                style={[{ borderRadius: 24 }]}
-              >
-                <LinearGradient
-                  colors={grad}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    borderRadius: 24,
-                    padding: 20,
-                    overflow: 'hidden',
-                    shadowColor: grad[1],
-                    shadowOpacity: 0.25,
-                    shadowRadius: 16,
-                    shadowOffset: { width: 0, height: 8 },
-                    elevation: 6,
-                  }}
-                >
-                  {/* Decorative blob — matches mockup `absolute -top-12 -right-12 w-40 h-40 bg-white/20 rounded-full`. */}
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      position: 'absolute',
-                      top: -48,
-                      right: -48,
-                      width: 160,
-                      height: 160,
-                      borderRadius: 80,
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                    }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: '600',
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.8,
-                      color: 'rgba(255,255,255,0.8)',
-                    }}
-                  >
-                    {KIND_LABELS[w.kind]}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 20,
-                      fontWeight: '700',
-                      color: '#FFFFFF',
-                      marginTop: 4,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {w.name}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 26,
-                      fontWeight: '700',
-                      color: '#FFFFFF',
-                      marginTop: 20,
-                    }}
-                  >
-                    {formatCurrency(w.openingBalance, w.currency || currency)}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: 'rgba(255,255,255,0.8)',
-                      marginTop: 4,
-                    }}
-                  >
-                    Opening balance · {w.currency || currency}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
-            );
-          })}
-          <Text
+      <Header
+        back
+        title="Wallets"
+        right={
+          <Pressable onPress={openNew} hitSlop={8}>
+            <Plus size={20} color={tokens.brand} />
+          </Pressable>
+        }
+      />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 8 }}>
+        {q.isLoading ? (
+          <View style={{ gap: 8 }}>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} style={{ height: 60, borderRadius: 16 }} />
+            ))}
+          </View>
+        ) : wallets.length === 0 ? (
+          <EmptyState
+            icon={<WalletIcon size={28} color={tokens.brand} />}
+            title="No wallets yet"
+            body="Add cash, cards, bank accounts to track where your money lives."
+            action={<Button label="Add wallet" variant="brand" fullWidth={false} onPress={openNew} />}
+          />
+        ) : (
+          <View
             style={{
-              fontSize: 11,
-              color: meta,
-              textAlign: 'center',
-              marginTop: 4,
-              fontStyle: 'italic',
+              backgroundColor: tokens.surface,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              overflow: 'hidden',
             }}
           >
-            Live balance computation coming in v1.1.
-          </Text>
-        </ScrollView>
-      )}
-      <FAB onPress={() => setDraft({ ...DEFAULT_DRAFT })} />
+            {wallets.map((w, i) => {
+              const bal = Number(w.openingBalance ?? '0');
+              return (
+                <View key={w.id}>
+                  <ListItem
+                    leading={
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 12,
+                          backgroundColor: `${tokens.brand}1A`,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <KindIcon kind={w.kind} color={tokens.brand} />
+                      </View>
+                    }
+                    title={w.name}
+                    subtitle={`${KIND_LABELS[w.kind]} · ${w.currency ?? baseCurrency}`}
+                    trailingText={formatMoney(bal, w.currency ?? baseCurrency)}
+                    onPress={() => openEdit(w)}
+                  />
+                  {i < wallets.length - 1 ? (
+                    <View
+                      style={{ height: 1, backgroundColor: tokens.border, marginLeft: 14 }}
+                    />
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
 
-      <Sheet open={draft !== null} onClose={() => setDraft(null)}>
+      <Sheet visible={draft !== null} onClose={() => setDraft(null)} heightPct={80}>
         {draft && (
-          <View style={{ gap: 16 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: ink }}>
+          <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: tokens.ink }}>
               {draft.id ? 'Edit wallet' : 'New wallet'}
             </Text>
             <Input
@@ -248,47 +226,147 @@ export default function WalletsScreen() {
               placeholder="e.g. HDFC Debit"
               value={draft.name}
               onChangeText={(name) => setDraft({ ...draft, name })}
+              autoCapitalize="words"
             />
             <View>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: meta, marginBottom: 6 }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '500',
+                  color: tokens.muted,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 8,
+                }}
+              >
                 Kind
               </Text>
-              <SegmentedControl
-                value={draft.kind}
-                onChange={(kind) => setDraft({ ...draft, kind })}
-                options={[
-                  { label: 'Cash', value: 'cash' },
-                  { label: 'Card', value: 'card' },
-                  { label: 'UPI', value: 'upi' },
-                  { label: 'Bank', value: 'bank' },
-                  { label: 'Other', value: 'other' },
-                ]}
-              />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {KIND_OPTIONS.map((k) => {
+                  const selected = draft.kind === k;
+                  return (
+                    <Pressable
+                      key={k}
+                      onPress={() => setDraft({ ...draft, kind: k })}
+                      style={{
+                        width: '23%',
+                        aspectRatio: 1.1,
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: selected ? tokens.brand : tokens.border,
+                        backgroundColor: selected ? `${tokens.brand}14` : tokens.surface,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <KindIcon
+                        kind={k}
+                        size={20}
+                        color={selected ? tokens.brand : tokens.ink}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: '600',
+                          color: selected ? tokens.brand : tokens.ink,
+                        }}
+                      >
+                        {KIND_LABELS[k]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
             <Input
-              label={`Opening balance (${currency})`}
+              label={`Opening balance (${draft.currency})`}
               placeholder="0"
               keyboardType="decimal-pad"
               value={draft.openingBalance}
               onChangeText={(openingBalance) => setDraft({ ...draft, openingBalance })}
             />
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              {draft.id && (
-                <Button variant="danger" onPress={() => confirmDelete(draft.id as string)}>
-                  Delete
-                </Button>
-              )}
-              <View style={{ flex: 1 }} />
-              <Button variant="ghost" onPress={() => setDraft(null)}>
-                Cancel
-              </Button>
-              <Button onPress={submit} loading={create.isPending || update.isPending}>
-                Save
-              </Button>
-            </View>
-          </View>
+            {!draft.id ? (
+              <Pressable onPress={() => setPickCurrency(true)}>
+                <View pointerEvents="none">
+                  <Input label="Currency" value={draft.currency} editable={false} />
+                </View>
+              </Pressable>
+            ) : null}
+            <View style={{ height: 8 }} />
+            <Button
+              label={draft.id ? 'Save changes' : 'Create wallet'}
+              onPress={submit}
+              loading={create.isPending || update.isPending}
+            />
+            {draft.id ? (
+              <Button
+                label="Delete wallet"
+                variant="danger"
+                onPress={() => setConfirmDelete(draft.id!)}
+              />
+            ) : null}
+            <Button label="Cancel" variant="ghost" onPress={() => setDraft(null)} />
+          </ScrollView>
         )}
       </Sheet>
+
+      <Sheet visible={pickCurrency} onClose={() => setPickCurrency(false)} heightPct={70}>
+        <Text
+          style={{
+            fontSize: 17,
+            fontWeight: '700',
+            marginBottom: 12,
+            color: tokens.ink,
+          }}
+        >
+          Currency
+        </Text>
+        <ScrollView contentContainerStyle={{ gap: 4, paddingBottom: 24 }}>
+          {SEED_CURRENCIES.map((c) => {
+            const selected = draft?.currency === c.code;
+            return (
+              <Pressable
+                key={c.code}
+                onPress={() => {
+                  if (draft) setDraft({ ...draft, currency: c.code });
+                  setPickCurrency(false);
+                }}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: selected ? tokens.brand : tokens.border,
+                  backgroundColor: selected ? `${tokens.brand}14` : 'transparent',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <Text style={{ fontSize: 18, fontWeight: '700', color: tokens.ink, width: 32 }}>
+                  {c.symbol}
+                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: tokens.ink }}>
+                    {c.code}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: tokens.muted }}>{c.name}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </Sheet>
+
+      <ConfirmDialog
+        visible={confirmDelete !== null}
+        title="Delete wallet?"
+        message="This will fail if expenses still reference this wallet."
+        destructive
+        confirmLabel="Delete"
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={doDelete}
+      />
     </Screen>
   );
 }

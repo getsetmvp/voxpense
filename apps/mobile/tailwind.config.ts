@@ -1,6 +1,9 @@
 import type { Config } from 'tailwindcss';
 
-// VoxPense palette — locked in design.md § 2
+// VoxPense palette — adopted from MVP (~/Apps/voxpense/apps/mobile/tailwind.config.js).
+// Indigo brand, soft neutrals, single solid surface per theme — no gradients,
+// no glass, no blur.
+
 const config: Config = {
   content: ['./app/**/*.{tsx,ts,jsx,js}', './src/**/*.{tsx,ts,jsx,js}'],
   presets: [require('nativewind/preset')],
@@ -8,44 +11,36 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['Inter', 'monospace'],
+        sans: ['Inter_400Regular', 'system-ui', 'sans-serif'],
+        medium: ['Inter_500Medium'],
+        semibold: ['Inter_600SemiBold'],
+        bold: ['Inter_700Bold'],
       },
       colors: {
-        bg: { l: '#F8FAFC', l2: '#EEF2F7', d: '#0B1220', d2: '#0A0F1A' },
-        surf: {
-          l0: '#FFFFFF', l1: '#F1F4F8', l2: '#E5EAF1',
-          d0: '#111827', d1: '#1F2937', d2: '#374151',
-        },
-        ink: {
-          l1: '#0F172A', l2: '#64748B', l3: '#94A3B8',
-          d1: '#F8FAFC', d2: '#94A3B8', d3: '#64748B',
-        },
-        brand: {
-          DEFAULT: '#3B82F6',
-          hover: '#2563EB',
-          muted: '#DBEAFE',
-          dark: '#60A5FA',
-          darkMuted: '#1E3A8A',
-        },
-        accent: {
-          DEFAULT: '#F43F5E',
-          muted: '#FECDD3',
-          dark: '#FB7185',
-          darkMuted: '#7F1D1D',
-        },
-        ok: { DEFAULT: '#10B981', dark: '#34D399' },
-        warn: { DEFAULT: '#F59E0B', dark: '#FBBF24' },
-        bad: { DEFAULT: '#EF4444', dark: '#F87171' },
-        info: { DEFAULT: '#06B6D4', dark: '#22D3EE' },
+        ink: { DEFAULT: '#0A0A0A', soft: '#171717' },
+        paper: { DEFAULT: '#FAFAFA', card: '#FFFFFF' },
+        night: { DEFAULT: '#0A0A0A', card: '#171717', card2: '#1F1F1F' },
+        line: { light: '#E5E5E5', dark: '#262626' },
+        muted: { light: '#737373', dark: '#A3A3A3' },
+        brand: { DEFAULT: '#6366F1', dark: '#818CF8', deep: '#4F46E5' },
+        good: '#10B981',
+        warn: '#F59E0B',
+        bad: '#EF4444',
+        // Category palette retained — categories still need distinct colors.
         cat: {
-          c1: '#8B5CF6', c2: '#10B981', c3: '#F59E0B',
-          c4: '#EC4899', c5: '#06B6D4', c6: '#F97316',
+          c1: '#8B5CF6',
+          c2: '#10B981',
+          c3: '#F59E0B',
+          c4: '#EC4899',
+          c5: '#06B6D4',
+          c6: '#F97316',
         },
-        divider: { l: '#E2E8F0', d: '#1F2937' },
       },
       borderRadius: {
-        '4xl': '32px',
+        xl: '12px',
+        '2xl': '16px',
+        '3xl': '20px',
+        '4xl': '24px',
       },
     },
   },

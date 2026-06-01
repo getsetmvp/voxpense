@@ -27,6 +27,14 @@ export function formatCompact(amount: string | number, currency = 'INR'): string
   return `${sym}${n.toFixed(0)}`;
 }
 
+export function formatTime(iso: string): string {
+  try {
+    return format(new Date(iso), 'h:mm a');
+  } catch {
+    return '';
+  }
+}
+
 export function formatDate(iso: string, pattern = 'd MMM yyyy'): string {
   try {
     return format(new Date(iso), pattern);

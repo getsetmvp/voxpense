@@ -1,8 +1,7 @@
 // Root error boundary. Catches render errors anywhere in the tree.
 
-import { Component, ErrorInfo, ReactNode } from 'react';
-import { ErrorView } from './glass/States';
-import { Screen } from './glass/Screen';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Pressable, Text, View } from 'react-native';
 
 interface Props {
   children: ReactNode;
@@ -29,13 +28,44 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <Screen>
-          <ErrorView
-            title="App hit an unexpected error"
-            message={this.state.error.message}
-            onRetry={this.reset}
-          />
-        </Screen>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#FAFAFA',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            gap: 12,
+          }}
+        >
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#0A0A0A' }}>
+            App hit an unexpected error
+          </Text>
+          <Text
+            style={{
+              fontSize: 13,
+              color: '#737373',
+              textAlign: 'center',
+              maxWidth: 320,
+            }}
+          >
+            {this.state.error.message}
+          </Text>
+          <Pressable
+            onPress={this.reset}
+            style={{
+              marginTop: 8,
+              paddingHorizontal: 16,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: '#6366F1',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Try again</Text>
+          </Pressable>
+        </View>
       );
     }
     return this.props.children;
