@@ -50,7 +50,14 @@ jobs:
         id: runtime
         run: |
           cd apps/mobile
-          RUNTIME=$(node -p "require('./app.config.js')({config:{}}).runtimeVersion")
+          # tail -n1 strips dotenv's "◇ injected env ..." stdout log so only
+          # the final printed value is captured. node -e + console.log keeps
+          # node from auto-printing the function reference.
+          RUNTIME=$(node -e "console.log(require('./app.config.js')({config:{}}).runtimeVersion)" 2>/dev/null | tail -n1)
+          if [ -z "$RUNTIME" ]; then
+            echo "ERROR: failed to read runtimeVersion from app.config.js" >&2
+            exit 1
+          fi
           echo "value=$RUNTIME" >> $GITHUB_OUTPUT
         env:
           APP_ENV: ${{ steps.envmap.outputs.env }}
