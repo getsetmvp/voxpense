@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system';
 import { Image as ImageIcon, X, Zap } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../src/components/layout/Screen';
@@ -37,7 +37,9 @@ export default function PhotoCapture() {
         toast.show('Capture failed', 'bad');
         return;
       }
-      const base64 = await new File(pic.uri).base64();
+      const base64 = await FileSystem.readAsStringAsync(pic.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
       const parsed = await ai.parseReceipt({
         image: { data: base64, mime: 'image/jpeg' },
       });

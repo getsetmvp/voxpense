@@ -9,8 +9,8 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    name: isPreview ? 'VoxPense (Preview)' : 'VoxPense',
-    slug: isPreview ? 'voxpense-preview' : 'voxpense',
+    name: 'voxpense',
+    slug: 'voxpense',
     version: '1.0.0',
     runtimeVersion: '1.0.0',
     orientation: 'portrait',
@@ -41,14 +41,10 @@ module.exports = ({ config }) => {
     },
     ios: {
       supportsTablet: false,
-      bundleIdentifier: isPreview
-        ? 'com.yashguptadeveloper.voxpense.preview'
-        : 'com.yashguptadeveloper.voxpense',
+      bundleIdentifier: 'com.yashguptadeveloper.voxpense',
     },
     android: {
-      package: isPreview
-        ? 'com.yashguptadeveloper.voxpense.preview'
-        : 'com.yashguptadeveloper.voxpense',
+      package: 'com.yashguptadeveloper.voxpense',
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#6366F1',
@@ -66,7 +62,6 @@ module.exports = ({ config }) => {
       'expo-router',
       'expo-font',
       'expo-secure-store',
-      '@react-native-community/datetimepicker',
       [
         'expo-camera',
         {
@@ -91,16 +86,13 @@ module.exports = ({ config }) => {
       ],
     ],
     experiments: {
-      typedRoutes: false,
+      typedRoutes: true,
     },
     extra: {
       env,
       apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://server.getsetmvp.com',
       tenant: 'voxpense',
       sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
-      eas: {
-        projectId: 'b20d6563-81c8-4401-a4df-2ff549a01ede',
-      },
     },
     owner: 'yashguptadeveloper',
   };
