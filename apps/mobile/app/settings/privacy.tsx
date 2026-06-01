@@ -106,17 +106,44 @@ export default function PrivacyScreen() {
       <Sheet open={showDelete} onClose={() => setShowDelete(false)}>
         <View style={{ gap: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Ionicons name="warning" size={22} color="#EF4444" />
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: isDark
+                  ? 'rgba(248,113,113,0.2)'
+                  : 'rgba(239,68,68,0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="warning" size={20} color="#EF4444" />
+            </View>
             <Text style={{ fontSize: 18, fontWeight: '700', color: ink }}>
               Delete account?
             </Text>
           </View>
-          <Text style={{ fontSize: 14, color: ink, lineHeight: 20 }}>
-            This will permanently erase your account, all expenses, wallets,
-            categories, budgets, recurring entries, and reminders. This cannot be
-            undone.
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+          <View
+            style={{
+              padding: 12,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: isDark
+                ? 'rgba(248,113,113,0.3)'
+                : 'rgba(239,68,68,0.25)',
+              backgroundColor: isDark
+                ? 'rgba(248,113,113,0.08)'
+                : 'rgba(239,68,68,0.05)',
+            }}
+          >
+            <Text style={{ fontSize: 13, color: ink, lineHeight: 20 }}>
+              This will permanently erase your account, all expenses, wallets,
+              categories, budgets, recurring entries, and reminders.{'\n'}
+              <Text style={{ fontWeight: '700' }}>This cannot be undone.</Text>
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
             <View style={{ flex: 1 }}>
               <Button
                 variant="ghost"
@@ -134,7 +161,7 @@ export default function PrivacyScreen() {
                 onPress={confirmDelete}
                 loading={deleting}
               >
-                Delete
+                Delete forever
               </Button>
             </View>
           </View>
