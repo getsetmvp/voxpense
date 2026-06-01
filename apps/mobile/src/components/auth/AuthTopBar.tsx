@@ -1,7 +1,7 @@
 // AuthTopBar — small back chevron + title + subtitle stack used by login/signup.
 // Matches mockup 02/03 chrome: round 36px back button, no card chrome.
 
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -36,15 +36,13 @@ export function AuthTopBar({ title, subtitle, onBack }: AuthTopBarProps) {
         accessibilityRole="button"
         accessibilityLabel="Go back"
         onPress={handleBack}
-        style={({ pressed }) => ({
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.95)',
-          opacity: pressed ? 0.7 : 1,
-        })}
+        style={({ pressed }) => [
+          styles.backBtn,
+          {
+            backgroundColor: isDark ? 'rgba(31,41,55,0.7)' : 'rgba(241,244,248,0.95)',
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
       >
         <Feather name="arrow-left" size={18} color={ink} />
       </Pressable>
@@ -74,3 +72,13 @@ export function AuthTopBar({ title, subtitle, onBack }: AuthTopBarProps) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

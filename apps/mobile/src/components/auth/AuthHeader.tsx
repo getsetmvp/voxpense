@@ -1,7 +1,7 @@
 // AuthHeader — back chevron + title + subtitle row used by login / signup
 // screens. Stays consistent with mockup 02 / 03.
 
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -34,17 +34,14 @@ export function AuthHeader({ title, subtitle, onBack }: AuthHeaderProps) {
         accessibilityRole="button"
         accessibilityLabel="Go back"
         onPress={handleBack}
-        style={({ pressed }) => ({
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: isDark ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.85)',
-          borderWidth: 1,
-          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)',
-          opacity: pressed ? 0.7 : 1,
-        })}
+        style={({ pressed }) => [
+          styles.backBtn,
+          {
+            backgroundColor: isDark ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.85)',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)',
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
       >
         <Feather name="arrow-left" size={18} color={isDark ? '#F8FAFC' : '#0F172A'} />
       </Pressable>
@@ -73,3 +70,14 @@ export function AuthHeader({ title, subtitle, onBack }: AuthHeaderProps) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+});

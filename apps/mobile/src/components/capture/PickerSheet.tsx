@@ -4,7 +4,7 @@
 // or icon per item (categories ship colors; wallets ship kinds).
 
 import { ReactNode } from 'react';
-import { FlatList, Pressable, Text, View, useColorScheme } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Sheet } from '../glass';
 import { radii } from '../../theme/tokens';
@@ -76,22 +76,22 @@ export function PickerSheet<T extends PickerItem>({
                   onSelect(item);
                   onClose();
                 }}
-                style={({ pressed }) => ({
-                  padding: 12,
-                  borderRadius: radii.md,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: selected
-                    ? isDark
-                      ? 'rgba(59,130,246,0.18)'
-                      : 'rgba(59,130,246,0.10)'
-                    : isDark
-                      ? 'rgba(31,41,55,0.6)'
-                      : 'rgba(241,244,248,0.85)',
-                  borderWidth: selected ? 1 : 0,
-                  borderColor: '#3B82F6',
-                  opacity: pressed ? 0.8 : 1,
-                })}
+                style={({ pressed }) => [
+                  pickerStyles.item,
+                  {
+                    borderRadius: radii.md,
+                    backgroundColor: selected
+                      ? isDark
+                        ? 'rgba(59,130,246,0.18)'
+                        : 'rgba(59,130,246,0.10)'
+                      : isDark
+                        ? 'rgba(31,41,55,0.6)'
+                        : 'rgba(241,244,248,0.85)',
+                    borderWidth: selected ? 1 : 0,
+                    borderColor: '#3B82F6',
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
               >
                 {leftIconFor && <View style={{ marginRight: 12 }}>{leftIconFor(item)}</View>}
                 <View style={{ flex: 1 }}>
@@ -127,3 +127,11 @@ export function PickerSheet<T extends PickerItem>({
     </Sheet>
   );
 }
+
+const pickerStyles = StyleSheet.create({
+  item: {
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+});

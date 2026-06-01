@@ -6,7 +6,7 @@
 // where the mic IS the stop button while listening).
 
 import { useEffect } from 'react';
-import { Pressable, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   Easing,
@@ -70,18 +70,15 @@ export function MicButton({ state, onPress, disabled }: MicButtonProps) {
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={isListening ? 'Stop recording' : 'Start recording'}
-      style={({ pressed }) => ({
-        width: RING_SIZE,
-        height: RING_SIZE,
-        borderRadius: RING_SIZE / 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: ringBg,
-        borderWidth: 1,
-        borderColor: ringBorderColor,
-        opacity: disabled ? 0.5 : 1,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-      })}
+      style={({ pressed }) => [
+        micStyles.ring,
+        {
+          backgroundColor: ringBg,
+          borderColor: ringBorderColor,
+          opacity: disabled ? 0.5 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+        },
+      ]}
     >
       {/* Outer pulse ring (animated when listening) */}
       <Animated.View
@@ -162,6 +159,17 @@ interface BarProps {
   index: number;
   progress: Animated.SharedValue<number>;
 }
+
+const micStyles = StyleSheet.create({
+  ring: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+});
 
 function Bar({ index, progress }: BarProps) {
   // Each bar phases the sine wave differently so the bars feel "alive" without

@@ -1,7 +1,7 @@
 // Horizontal active-filter pills with dismiss-x.
 // Renders nothing when no filters are active.
 
-import { Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export interface FilterPill {
@@ -30,19 +30,14 @@ export function FilterPills({ pills }: FilterPillsProps) {
           key={pill.key}
           onPress={pill.onRemove}
           accessibilityLabel={`Remove filter ${pill.label}`}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: 6,
-            paddingLeft: 12,
-            paddingRight: 8,
-            borderRadius: 999,
-            backgroundColor: isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.10)',
-            borderWidth: 1,
-            borderColor: isDark ? 'rgba(96,165,250,0.4)' : 'rgba(59,130,246,0.25)',
-            opacity: pressed ? 0.7 : 1,
-            gap: 6,
-          })}
+          style={({ pressed }) => [
+            styles.pill,
+            {
+              backgroundColor: isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.10)',
+              borderColor: isDark ? 'rgba(96,165,250,0.4)' : 'rgba(59,130,246,0.25)',
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
         >
           <Text
             numberOfLines={1}
@@ -51,14 +46,12 @@ export function FilterPills({ pills }: FilterPillsProps) {
             {pill.label}
           </Text>
           <View
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: 8,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: isDark ? 'rgba(96,165,250,0.25)' : 'rgba(59,130,246,0.18)',
-            }}
+            style={[
+              styles.x,
+              {
+                backgroundColor: isDark ? 'rgba(96,165,250,0.25)' : 'rgba(59,130,246,0.18)',
+              },
+            ]}
           >
             <Ionicons name="close" size={11} color={brand} />
           </View>
@@ -67,3 +60,23 @@ export function FilterPills({ pills }: FilterPillsProps) {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingLeft: 12,
+    paddingRight: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 6,
+  },
+  x: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
