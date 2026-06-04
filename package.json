@@ -11,6 +11,8 @@
   },
   "scripts": {
     "dev:mobile": "pnpm --filter @voxpense/mobile dev",
+    "dev:web": "pnpm --filter @voxpense/web dev",
+    "build:web": "pnpm --filter @voxpense/web build",
     "android": "pnpm --filter @voxpense/mobile android",
     "lint": "pnpm -r run lint",
     "typecheck": "pnpm -r run typecheck",
