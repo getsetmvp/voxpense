@@ -41,10 +41,10 @@ module.exports = ({ config }) => {
     },
     ios: {
       supportsTablet: false,
-      bundleIdentifier: 'com.yashguptadeveloper.voxpense',
+      bundleIdentifier: 'com.getsetmvp.voxpense',
     },
     android: {
-      package: 'com.yashguptadeveloper.voxpense',
+      package: 'com.getsetmvp.voxpense',
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#6366F1',

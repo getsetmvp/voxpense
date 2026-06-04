@@ -35,7 +35,7 @@ Initial Play Store release.
 - Theme: indigo brand, Inter font, full light + dark mode parity across 22 screens.
 - OTA hotfix path via self-hosted Cloudflare Worker + R2 (`runtimeVersion 1.0.0`).
 - Crash reporting via Sentry React Native (PII-scrubbed).
-- Single APK signing identity, package `com.yashguptadeveloper.voxpense`.
+- Single APK signing identity, package `com.getsetmvp.voxpense`.
 
 ### Fixed (pre-launch hardening)
 

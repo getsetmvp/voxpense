@@ -153,7 +153,7 @@ APP_ENV=preview pnpm exec expo start --dev-client --port 8081 --host lan &
 
 # 4. Launch the dev client on the emulator (and/or phone)
 adb -s emulator-5554 reverse tcp:8081 tcp:8081
-adb -s emulator-5554 shell am force-stop com.yashguptadeveloper.voxpense
+adb -s emulator-5554 shell am force-stop com.getsetmvp.voxpense
 adb -s emulator-5554 shell am start -a android.intent.action.VIEW \
   -d 'voxpense://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
 ```

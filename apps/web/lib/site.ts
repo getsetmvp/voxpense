@@ -8,12 +8,12 @@ export const site = {
   twitter: '@yashgptdev',
   email: 'yash.g@pei.group',
   playStoreUrl:
-    'https://play.google.com/store/apps/details?id=com.yashguptadeveloper.voxpense',
+    'https://play.google.com/store/apps/details?id=com.getsetmvp.voxpense',
   appStoreUrl: null as string | null,
   github: null as string | null,
   brand: '#6366F1',
   brandDeep: '#4F46E5',
-  androidPackage: 'com.yashguptadeveloper.voxpense',
+  androidPackage: 'com.getsetmvp.voxpense',
   version: '1.0.0',
   launchDate: '2026-06-10',
   nav: [
