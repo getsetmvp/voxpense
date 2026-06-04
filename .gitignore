@@ -46,6 +46,12 @@ tmp/
 *.tsbuildinfo
 coverage/
 
+# native build outputs (large, regenerable by `eas build --local`)
+*.aab
+*.apk
+build-*.aab
+build-*.apk
+
 # eas
 .eas-build-local/
 
