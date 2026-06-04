@@ -9,7 +9,7 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    name: 'voxpense',
+    name: 'Voxpense',
     slug: 'voxpense',
     version: '1.0.0',
     runtimeVersion: '1.0.0',
@@ -65,14 +65,14 @@ module.exports = ({ config }) => {
       [
         'expo-camera',
         {
-          cameraPermission: 'Allow VoxPense to use the camera to capture receipts.',
+          cameraPermission: 'Allow Voxpense to use the camera to capture receipts.',
         },
       ],
       [
         'expo-speech-recognition',
         {
-          microphonePermission: 'Allow VoxPense to listen so you can speak your expenses.',
-          speechRecognitionPermission: 'Allow VoxPense to convert your speech to text.',
+          microphonePermission: 'Allow Voxpense to listen so you can speak your expenses.',
+          speechRecognitionPermission: 'Allow Voxpense to convert your speech to text.',
         },
       ],
       [

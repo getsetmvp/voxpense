@@ -39,7 +39,7 @@ export function Privacy() {
             Your money story stays yours.
           </h2>
           <p className="mt-4 text-lg text-muted dark:text-muted-dark">
-            We built VoxPense because finance apps shouldn&apos;t harvest your spending data. Read the{' '}
+            We built Voxpense because finance apps shouldn&apos;t harvest your spending data. Read the{' '}
             <a href="/privacy" className="text-brand underline-offset-2 hover:underline">
               full privacy policy
             </a>{' '}

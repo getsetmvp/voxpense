@@ -1,6 +1,6 @@
 import type { Config } from 'tailwindcss';
 
-// VoxPense palette — adopted from MVP (~/Apps/voxpense/apps/mobile/tailwind.config.js).
+// Voxpense palette — adopted from MVP (~/Apps/voxpense/apps/mobile/tailwind.config.js).
 // Indigo brand, soft neutrals, single solid surface per theme — no gradients,
 // no glass, no blur.
 

@@ -7,7 +7,7 @@ import { clsx } from 'clsx';
 
 const FAQS = [
   {
-    q: 'Is VoxPense really free?',
+    q: 'Is Voxpense really free?',
     a: 'Yes. v1 is free for everyone. No ads, no in-app purchases. If we introduce paid tiers later, existing accounts will keep current features at no charge.',
   },
   {

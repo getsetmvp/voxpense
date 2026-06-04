@@ -45,7 +45,7 @@ export default function PrivacySettings() {
       const json = JSON.stringify(payload, null, 2);
       await Share.share({
         message: json,
-        title: 'VoxPense expenses export',
+        title: 'Voxpense expenses export',
       });
       toast.show(`Exported ${result.data.length} expenses`, 'good');
     } catch (e) {
@@ -114,7 +114,7 @@ export default function PrivacySettings() {
                   lineHeight: 20,
                 }}
               >
-                VoxPense stores your expenses on our server tied to your account.
+                Voxpense stores your expenses on our server tied to your account.
                 Voice transcripts and receipt photos are sent to AI for parsing
                 only. Audio is only retained locally if you enable "Keep voice
                 audio" in Preferences.

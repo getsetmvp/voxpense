@@ -92,7 +92,7 @@ export default function PhotoCapture() {
               textAlign: 'center',
             }}
           >
-            VoxPense uses the camera to scan receipts.
+            Voxpense uses the camera to scan receipts.
           </Text>
           <Pressable
             onPress={request}

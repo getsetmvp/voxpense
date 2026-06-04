@@ -16,7 +16,7 @@ export function CTA() {
               Stop typing your expenses. Talk to them.
             </h2>
             <p className="mt-4 text-lg text-white/85">
-              VoxPense is free, ad-free, and ships with one promise: your data stays yours. Take it for a spin today.
+              Voxpense is free, ad-free, and ships with one promise: your data stays yours. Take it for a spin today.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <a

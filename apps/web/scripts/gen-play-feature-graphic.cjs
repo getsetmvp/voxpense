@@ -55,7 +55,7 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     </g>
   </g>
   <g transform="translate(280, 215)" fill="#FFFFFF" font-family="Helvetica, Arial, sans-serif">
-    <text x="0" y="0" font-weight="700" font-size="78" letter-spacing="-2">VoxPense</text>
+    <text x="0" y="0" font-weight="700" font-size="78" letter-spacing="-2">Voxpense</text>
     <text x="0" y="60" fill-opacity="0.92" font-weight="500" font-size="34">Speak it. We log it.</text>
     <text x="0" y="105" fill-opacity="0.7" font-weight="400" font-size="20">Voice-first expense tracking with AI</text>
   </g>

@@ -37,7 +37,7 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={className}>
       <span className="font-bold tracking-tight">Vox</span>
-      <span className="font-bold tracking-tight text-brand">Pense</span>
+      <span className="font-bold tracking-tight text-brand">pense</span>
     </span>
   );
 }

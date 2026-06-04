@@ -7,7 +7,7 @@ import { Container } from '@/components/Container';
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
-    'How VoxPense collects, stores, shares, and deletes your data. Plain English. Last updated 2026-06-04.',
+    'How Voxpense collects, stores, shares, and deletes your data. Plain English. Last updated 2026-06-04.',
   alternates: { canonical: '/privacy' },
 };
 
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
               <span className="mx-2">/</span>
               <span>Privacy policy</span>
             </nav>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">VoxPense Privacy Policy</h1>
+            <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">Voxpense Privacy Policy</h1>
             <p className="mt-3 text-sm text-muted dark:text-muted-dark">
               Last updated <time dateTime={LAST_UPDATED}>{LAST_UPDATED}</time> · Plain English · No dark patterns.
             </p>
@@ -36,7 +36,7 @@ export default function PrivacyPage() {
         <Container>
           <article className="prose-content mx-auto max-w-3xl pb-20">
             <p>
-              VoxPense (&quot;the app&quot;) is a personal expense tracker developed and operated by
+              Voxpense (&quot;the app&quot;) is a personal expense tracker developed and operated by
               Yash Gupta (&quot;we&quot;, &quot;us&quot;). This policy explains what data the app
               collects, how it is stored, who it is shared with, and how to delete it.
             </p>
@@ -45,13 +45,13 @@ export default function PrivacyPage() {
             </p>
 
             <h2>1. Data we collect</h2>
-            <p>When you create a VoxPense account we collect:</p>
+            <p>When you create a Voxpense account we collect:</p>
             <ul>
               <li><strong>Email address</strong> (required) — used as your login identifier and for account recovery.</li>
               <li><strong>Display name</strong> (optional) — shown in the app UI; you may leave it blank.</li>
               <li><strong>Expense entries you create</strong> — amount, currency, category, wallet, group, merchant, date, free-text notes, and optionally an attached photo or short voice recording transcript.</li>
             </ul>
-            <p>VoxPense <strong>does not</strong> collect:</p>
+            <p>Voxpense <strong>does not</strong> collect:</p>
             <ul>
               <li>Your location.</li>
               <li>Your contacts.</li>
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
             </ul>
 
             <h2>2. How voice and photo capture work</h2>
-            <p>VoxPense lets you log an expense by speaking (&quot;lunch 320 swiggy&quot;) or by photographing a receipt.</p>
+            <p>Voxpense lets you log an expense by speaking (&quot;lunch 320 swiggy&quot;) or by photographing a receipt.</p>
             <ul>
               <li><strong>Voice:</strong> the device&apos;s on-device speech recognizer converts your speech to text locally. Only the resulting text is sent to our server for parsing. Raw audio is <strong>not</strong> uploaded unless you explicitly enable &quot;Keep voice audio&quot; in Preferences — in which case the audio file is stored on your device only and never leaves it.</li>
               <li><strong>Photo:</strong> the receipt image is sent to our server, which forwards it to an AI parsing service to extract amount + merchant. The image is retained on our server only as long as needed to render it in the app&apos;s expense detail screen, and is deleted on account deletion.</li>
@@ -116,7 +116,7 @@ export default function PrivacyPage() {
             </ul>
 
             <h2>7. Children&apos;s privacy</h2>
-            <p>VoxPense is not directed to children under 18 and we do not knowingly collect data from them. If you believe a child has provided us data, contact <a href="mailto:yash.g@pei.group">yash.g@pei.group</a> and we will delete it.</p>
+            <p>Voxpense is not directed to children under 18 and we do not knowingly collect data from them. If you believe a child has provided us data, contact <a href="mailto:yash.g@pei.group">yash.g@pei.group</a> and we will delete it.</p>
 
             <h2>8. Security</h2>
             <ul>

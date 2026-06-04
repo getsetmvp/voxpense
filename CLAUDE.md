@@ -129,7 +129,7 @@ packages/shared-types/src/index.ts   DTOs shared mobile ↔ server
 - **runtimeVersion locked to "1.0.0"** in `app.config.js`. Bumping invalidates older OTA bundles.
 - **Code signing in dev**: the production-signed dev APK rejects unsigned Metro manifests. We strip `CODE_SIGNING_*` meta from `AndroidManifest.xml` post-prebuild — see Phase 6 fix commit. If you regenerate `android/`, you may need to re-strip.
 - **Two emulators at once**: AVD lock prevents multi-instance. Clone the AVD dir (`cp -R ~/.android/avd/<avd>.avd ~/.android/avd/<clone>.avd`) and boot the second with `-read-only`.
-- **Metro port collisions**: user often has a parallel `expo start` on 8082. Use 8081 for VoxPense.
+- **Metro port collisions**: user often has a parallel `expo start` on 8082. Use 8081 for Voxpense.
 
 ## Where related stuff lives
 

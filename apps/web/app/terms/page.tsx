@@ -6,7 +6,7 @@ import { Container } from '@/components/Container';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'VoxPense Terms of Service. Last updated 2026-06-04.',
+  description: 'Voxpense Terms of Service. Last updated 2026-06-04.',
   alternates: { canonical: '/terms' },
 };
 
@@ -25,7 +25,7 @@ export default function TermsPage() {
               <span className="mx-2">/</span>
               <span>Terms of service</span>
             </nav>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">VoxPense Terms of Service</h1>
+            <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">Voxpense Terms of Service</h1>
             <p className="mt-3 text-sm text-muted dark:text-muted-dark">
               Last updated <time dateTime={LAST_UPDATED}>{LAST_UPDATED}</time>
             </p>
@@ -35,7 +35,7 @@ export default function TermsPage() {
         <Container>
           <article className="prose-content mx-auto max-w-3xl pb-20">
             <p>
-              By creating an account or using the VoxPense app (&quot;the Service&quot;) you agree to these terms.
+              By creating an account or using the Voxpense app (&quot;the Service&quot;) you agree to these terms.
             </p>
             <p>
               Operator: Yash Gupta — <a href="mailto:yash.g@pei.group">yash.g@pei.group</a>.

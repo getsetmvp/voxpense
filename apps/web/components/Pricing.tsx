@@ -24,7 +24,7 @@ export function Pricing() {
             Free. No ads. No upsell.
           </h2>
           <p className="mt-4 text-lg text-muted dark:text-muted-dark">
-            VoxPense is free for v1. If we add paid tiers later, the current feature set stays free forever for existing users.
+            Voxpense is free for v1. If we add paid tiers later, the current feature set stays free forever for existing users.
           </p>
         </div>
 
@@ -57,7 +57,7 @@ export function Pricing() {
                 rel="noopener noreferrer"
                 className="mt-10 inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-6 py-3.5 text-sm font-semibold text-ink-inverse transition-transform hover:scale-[1.01] active:scale-[0.99] dark:bg-ink-inverse dark:text-ink"
               >
-                Download VoxPense
+                Download Voxpense
               </a>
             </div>
           </div>

@@ -1,6 +1,6 @@
 # @voxpense/web
 
-Marketing site for VoxPense. Next.js 15 (App Router) + React 19 + Tailwind v3.
+Marketing site for Voxpense. Next.js 15 (App Router) + React 19 + Tailwind v3.
 
 Routes:
 

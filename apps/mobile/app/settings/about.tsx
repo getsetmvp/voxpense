@@ -76,7 +76,7 @@ export default function AboutSettings() {
             <Text
               style={{ fontSize: 22, fontWeight: '700', color: tokens.ink }}
             >
-              VoxPense
+              Voxpense
             </Text>
             <Text style={{ fontSize: 13, color: tokens.muted }}>
               Voice-first expense tracker
@@ -133,7 +133,7 @@ export default function AboutSettings() {
             leading={<Mail size={18} color={tokens.muted} />}
             title="Contact"
             subtitle="yash.g@pei.group"
-            onPress={() => openMail('VoxPense support')}
+            onPress={() => openMail('Voxpense support')}
           />
           <View
             style={{ height: 1, backgroundColor: tokens.border, marginLeft: 14 }}
@@ -141,8 +141,8 @@ export default function AboutSettings() {
           <ListItem
             leading={<Bug size={18} color={tokens.muted} />}
             title="Report an issue"
-            subtitle="Help me make VoxPense better"
-            onPress={() => openMail('VoxPense bug report')}
+            subtitle="Help me make Voxpense better"
+            onPress={() => openMail('Voxpense bug report')}
           />
           <View
             style={{ height: 1, backgroundColor: tokens.border, marginLeft: 14 }}
@@ -151,7 +151,7 @@ export default function AboutSettings() {
             leading={<Lightbulb size={18} color={tokens.muted} />}
             title="Suggest a feature"
             subtitle="What would you like to see?"
-            onPress={() => openMail('VoxPense feature request')}
+            onPress={() => openMail('Voxpense feature request')}
           />
         </Card>
 

@@ -1,5 +1,5 @@
 export const site = {
-  name: 'VoxPense',
+  name: 'Voxpense',
   tagline: 'Speak it. We log it.',
   description:
     'Voice-first personal expense tracker. Talk to it like a friend; AI parses, categorizes, and budgets in the background.',

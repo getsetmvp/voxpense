@@ -80,7 +80,7 @@ export function Features() {
             A budget app that respects your time.
           </h2>
           <p className="mt-4 text-lg text-muted dark:text-muted-dark">
-            VoxPense skips the data-entry tax. Every feature here is a knife — sharp, single-purpose, instantly usable.
+            Voxpense skips the data-entry tax. Every feature here is a knife — sharp, single-purpose, instantly usable.
           </p>
         </div>
 

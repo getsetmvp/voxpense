@@ -1,8 +1,8 @@
-# VoxPense Terms of Service
+# Voxpense Terms of Service
 
 **Last updated:** 2026-06-04
 
-By creating an account or using the VoxPense app ("the Service") you agree to these terms.
+By creating an account or using the Voxpense app ("the Service") you agree to these terms.
 
 Operator: Yash Gupta — yash.g@pei.group.
 

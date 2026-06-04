@@ -25,7 +25,7 @@ export function Hero() {
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted dark:text-muted-dark">
-              VoxPense is the fastest way to track personal expenses. Tap the mic,
+              Voxpense is the fastest way to track personal expenses. Tap the mic,
               say <em className="text-ink dark:text-ink-inverse">&quot;lunch 320 swiggy&quot;</em>, and AI parses
               the amount, merchant, and category — no menus, no forms, no friction.
             </p>

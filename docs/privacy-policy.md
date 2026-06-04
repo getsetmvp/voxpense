@@ -1,20 +1,20 @@
-# VoxPense Privacy Policy
+# Voxpense Privacy Policy
 
 **Last updated:** 2026-06-04
 
-VoxPense ("the app") is a personal expense tracker developed and operated by Yash Gupta ("we", "us"). This policy explains what data the app collects, how it is stored, who it is shared with, and how to delete it.
+Voxpense ("the app") is a personal expense tracker developed and operated by Yash Gupta ("we", "us"). This policy explains what data the app collects, how it is stored, who it is shared with, and how to delete it.
 
 Contact: **yash.g@pei.group**
 
 ## 1. Data we collect
 
-When you create a VoxPense account we collect:
+When you create a Voxpense account we collect:
 
 - **Email address** (required) — used as your login identifier and for account recovery.
 - **Display name** (optional) — shown in the app UI; you may leave it blank.
 - **Expense entries you create** — amount, currency, category, wallet, group, merchant, date, free-text notes, and optionally an attached photo or short voice recording transcript.
 
-VoxPense **does not** collect:
+Voxpense **does not** collect:
 
 - Your location.
 - Your contacts.
@@ -25,7 +25,7 @@ VoxPense **does not** collect:
 
 ## 2. How voice and photo capture work
 
-VoxPense lets you log an expense by speaking ("lunch 320 swiggy") or by photographing a receipt.
+Voxpense lets you log an expense by speaking ("lunch 320 swiggy") or by photographing a receipt.
 
 - **Voice:** the device's on-device speech recognizer converts your speech to text locally. Only the resulting text is sent to our server for parsing. Raw audio is **not** uploaded unless you explicitly enable "Keep voice audio" in Preferences — in which case the audio file is stored on your device only and never leaves it.
 - **Photo:** the receipt image is sent to our server, which forwards it to an AI parsing service to extract amount + merchant. The image is retained on our server only as long as needed to render it in the app's expense detail screen, and is deleted on account deletion.
@@ -71,7 +71,7 @@ You may at any time:
 
 ## 7. Children's privacy
 
-VoxPense is not directed to children under 18 and we do not knowingly collect data from them. If you believe a child has provided us data, contact yash.g@pei.group and we will delete it.
+Voxpense is not directed to children under 18 and we do not knowingly collect data from them. If you believe a child has provided us data, contact yash.g@pei.group and we will delete it.
 
 ## 8. Security
 
