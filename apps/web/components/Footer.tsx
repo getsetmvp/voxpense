@@ -42,6 +42,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-muted dark:text-muted-dark">
               <li><Link href="/privacy" className="hover:text-ink dark:hover:text-ink-inverse">Privacy policy</Link></li>
               <li><Link href="/terms" className="hover:text-ink dark:hover:text-ink-inverse">Terms of service</Link></li>
+              <li><Link href="/account-deletion" className="hover:text-ink dark:hover:text-ink-inverse">Delete account</Link></li>
               <li><a href={`mailto:${site.email}`} className="hover:text-ink dark:hover:text-ink-inverse">Contact</a></li>
             </ul>
           </div>
