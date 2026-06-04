@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm exec turbo run build --filter=@voxpense/web",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "ignoreCommand": "cd ../.. && npx turbo-ignore @voxpense/web"
+}
