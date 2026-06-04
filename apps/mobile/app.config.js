@@ -90,10 +90,15 @@ module.exports = ({ config }) => {
       typedRoutes: true,
     },
     extra: {
+      ...(config?.extra ?? {}),
       env,
       apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://server.getsetmvp.com',
       tenant: 'voxpense',
       sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
+      eas: {
+        ...((config?.extra)?.eas ?? {}),
+        projectId: '6cc87bf3-4629-4fb2-b276-03046dfc6f42',
+      },
     },
     owner: 'yashguptadeveloper',
   };
