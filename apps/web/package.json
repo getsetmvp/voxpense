@@ -11,13 +11,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
     "next": "15.5.19",
     "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "lucide-react": "^0.460.0",
-    "clsx": "^2.1.1"
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^20.16.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
