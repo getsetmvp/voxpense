@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --brand: #6366f1;
+  --brand-deep: #4f46e5;
+  --ink: #0a0a0a;
+  --paper: #ffffff;
+  --paper-subtle: #fafafa;
+  --muted: #737373;
+  --edge: #e5e5e5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand: #818cf8;
+    --brand-deep: #6366f1;
+    --ink: #fafafa;
+    --paper: #0a0a0a;
+    --paper-subtle: #171717;
+    --muted: #a3a3a3;
+    --edge: #262626;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-inter);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+::selection {
+  background-color: rgba(99, 102, 241, 0.25);
+  color: var(--ink);
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  }
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.radial-fade {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18), transparent 55%),
+    radial-gradient(circle at 100% 30%, rgba(167, 139, 250, 0.12), transparent 60%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .radial-fade {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(129, 140, 248, 0.22), transparent 55%),
+      radial-gradient(circle at 100% 30%, rgba(167, 139, 250, 0.14), transparent 60%);
+  }
+}
+
+.prose-content h2 {
+  @apply mt-12 mb-4 text-2xl font-bold tracking-tight;
+}
+.prose-content h3 {
+  @apply mt-8 mb-3 text-lg font-semibold tracking-tight;
+}
+.prose-content p {
+  @apply mb-4 leading-relaxed text-ink/85 dark:text-ink-inverse/85;
+}
+.prose-content ul {
+  @apply mb-4 list-disc space-y-2 pl-6 text-ink/85 dark:text-ink-inverse/85;
+}
+.prose-content a {
+  @apply text-brand underline-offset-2 hover:underline;
+}
+.prose-content table {
+  @apply my-6 w-full border-collapse text-sm;
+}
+.prose-content th,
+.prose-content td {
+  @apply border border-edge px-3 py-2 text-left align-top dark:border-edge-dark;
+}
+.prose-content th {
+  @apply bg-paper-subtle font-semibold dark:bg-night-surface;
+}
