@@ -40,7 +40,7 @@ const FAQS = [
   },
   {
     q: 'Who built this?',
-    a: 'Yash Gupta — independent developer based in India. Contact: yash.g@pei.group.',
+    a: 'Yash Gupta — independent developer based in India. Contact: yash.gupta.developer@gmail.com.',
   },
 ];
 
@@ -56,8 +56,8 @@ export function FAQ() {
           </h2>
           <p className="mt-4 text-lg text-muted dark:text-muted-dark">
             If something here doesn&apos;t cover what you need, email{' '}
-            <a href="mailto:yash.g@pei.group" className="text-brand underline-offset-2 hover:underline">
-              yash.g@pei.group
+            <a href="mailto:yash.gupta.developer@gmail.com" className="text-brand underline-offset-2 hover:underline">
+              yash.gupta.developer@gmail.com
             </a>
             .
           </p>

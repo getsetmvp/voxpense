@@ -6,7 +6,7 @@ export const site = {
   url: 'https://voxpense.getsetmvp.com',
   ogImage: '/og.png',
   twitter: '@yashgptdev',
-  email: 'yash.g@pei.group',
+  email: 'yash.gupta.developer@gmail.com',
   playStoreUrl:
     'https://play.google.com/store/apps/details?id=com.getsetmvp.voxpense',
   appStoreUrl: null as string | null,

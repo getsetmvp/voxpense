@@ -4,7 +4,7 @@
 
 By creating an account or using the Voxpense app ("the Service") you agree to these terms.
 
-Operator: Yash Gupta — yash.g@pei.group.
+Operator: Yash Gupta — yash.gupta.developer@gmail.com.
 
 ## 1. Eligibility
 
@@ -12,7 +12,7 @@ You must be 18 years or older to use the Service.
 
 ## 2. Account
 
-You are responsible for keeping your login credentials confidential and for activity that occurs under your account. Notify us at yash.g@pei.group if you believe your account is compromised.
+You are responsible for keeping your login credentials confidential and for activity that occurs under your account. Notify us at yash.gupta.developer@gmail.com if you believe your account is compromised.
 
 ## 3. Acceptable use
 
@@ -55,4 +55,4 @@ These terms are governed by the laws of India. Disputes are subject to the exclu
 
 ## 11. Contact
 
-yash.g@pei.group
+yash.gupta.developer@gmail.com

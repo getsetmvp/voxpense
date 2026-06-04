@@ -41,7 +41,7 @@ export default function PrivacyPage() {
               collects, how it is stored, who it is shared with, and how to delete it.
             </p>
             <p>
-              Contact: <a href="mailto:yash.g@pei.group">yash.g@pei.group</a>.
+              Contact: <a href="mailto:yash.gupta.developer@gmail.com">yash.gupta.developer@gmail.com</a>.
             </p>
 
             <h2>1. Data we collect</h2>
@@ -104,7 +104,7 @@ export default function PrivacyPage() {
             <ul>
               <li><strong>Export your data:</strong> in-app, <em>Settings → Privacy &amp; data → Export data</em>. Produces a JSON file you can save anywhere.</li>
               <li><strong>Delete your account:</strong> in-app, <em>Settings → Privacy &amp; data → Delete account</em>. Server data is wiped within 7 days (backups within 30).</li>
-              <li><strong>Request a copy of any data we hold on you:</strong> email <a href="mailto:yash.g@pei.group">yash.g@pei.group</a>.</li>
+              <li><strong>Request a copy of any data we hold on you:</strong> email <a href="mailto:yash.gupta.developer@gmail.com">yash.gupta.developer@gmail.com</a>.</li>
               <li><strong>Correct inaccurate data:</strong> edit it directly in the app, or email us.</li>
             </ul>
 
@@ -116,7 +116,7 @@ export default function PrivacyPage() {
             </ul>
 
             <h2>7. Children&apos;s privacy</h2>
-            <p>Voxpense is not directed to children under 18 and we do not knowingly collect data from them. If you believe a child has provided us data, contact <a href="mailto:yash.g@pei.group">yash.g@pei.group</a> and we will delete it.</p>
+            <p>Voxpense is not directed to children under 18 and we do not knowingly collect data from them. If you believe a child has provided us data, contact <a href="mailto:yash.gupta.developer@gmail.com">yash.gupta.developer@gmail.com</a> and we will delete it.</p>
 
             <h2>8. Security</h2>
             <ul>
@@ -136,7 +136,7 @@ export default function PrivacyPage() {
             <h2>11. Contact</h2>
             <p>
               Questions, requests, or complaints:{' '}
-              <a href="mailto:yash.g@pei.group">yash.g@pei.group</a>.
+              <a href="mailto:yash.gupta.developer@gmail.com">yash.gupta.developer@gmail.com</a>.
             </p>
             <p>Postal address available on request.</p>
           </article>

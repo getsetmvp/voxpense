@@ -173,7 +173,7 @@ export default function PrivacySettings() {
           }}
         >
           {Platform.OS === 'ios' ? 'iOS' : 'Android'} · Privacy questions?
-          yash.g@pei.group
+          yash.gupta.developer@gmail.com
         </Text>
       </ScrollView>
 

@@ -38,14 +38,14 @@ export default function TermsPage() {
               By creating an account or using the Voxpense app (&quot;the Service&quot;) you agree to these terms.
             </p>
             <p>
-              Operator: Yash Gupta — <a href="mailto:yash.g@pei.group">yash.g@pei.group</a>.
+              Operator: Yash Gupta — <a href="mailto:yash.gupta.developer@gmail.com">yash.gupta.developer@gmail.com</a>.
             </p>
 
             <h2>1. Eligibility</h2>
             <p>You must be 18 years or older to use the Service.</p>
 
             <h2>2. Account</h2>
-            <p>You are responsible for keeping your login credentials confidential and for activity that occurs under your account. Notify us at <a href="mailto:yash.g@pei.group">yash.g@pei.group</a> if you believe your account is compromised.</p>
+            <p>You are responsible for keeping your login credentials confidential and for activity that occurs under your account. Notify us at <a href="mailto:yash.gupta.developer@gmail.com">yash.gupta.developer@gmail.com</a> if you believe your account is compromised.</p>
 
             <h2>3. Acceptable use</h2>
             <p>You agree not to:</p>
@@ -79,7 +79,7 @@ export default function TermsPage() {
             <p>These terms are governed by the laws of India. Disputes are subject to the exclusive jurisdiction of the courts of Bengaluru, Karnataka.</p>
 
             <h2>11. Contact</h2>
-            <p><a href="mailto:yash.g@pei.group">yash.g@pei.group</a></p>
+            <p><a href="mailto:yash.gupta.developer@gmail.com">yash.gupta.developer@gmail.com</a></p>
           </article>
         </Container>
       </main>

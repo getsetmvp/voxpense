@@ -42,7 +42,7 @@ export default function AboutSettings() {
     new Date().toISOString().slice(0, 10);
 
   const openMail = async (subject: string) => {
-    const url = `mailto:yash.g@pei.group?subject=${encodeURIComponent(subject)}`;
+    const url = `mailto:yash.gupta.developer@gmail.com?subject=${encodeURIComponent(subject)}`;
     try {
       const ok = await Linking.canOpenURL(url);
       if (ok) await Linking.openURL(url);
@@ -132,7 +132,7 @@ export default function AboutSettings() {
           <ListItem
             leading={<Mail size={18} color={tokens.muted} />}
             title="Contact"
-            subtitle="yash.g@pei.group"
+            subtitle="yash.gupta.developer@gmail.com"
             onPress={() => openMail('Voxpense support')}
           />
           <View

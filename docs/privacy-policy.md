@@ -4,7 +4,7 @@
 
 Voxpense ("the app") is a personal expense tracker developed and operated by Yash Gupta ("we", "us"). This policy explains what data the app collects, how it is stored, who it is shared with, and how to delete it.
 
-Contact: **yash.g@pei.group**
+Contact: **yash.gupta.developer@gmail.com**
 
 ## 1. Data we collect
 
@@ -60,7 +60,7 @@ You may at any time:
 
 - **Export your data:** in-app, `Settings → Privacy & data → Export data`. Produces a JSON file of your most recent expenses you can save anywhere.
 - **Delete your account:** in-app, `Settings → Privacy & data → Delete account`. This call triggers `DELETE /voxpense/v1/users/me` on our server, which marks your account for deletion and wipes all rows tied to your user ID within 7 days (including expenses, photos, voice transcripts, wallets, categories, groups, budgets, reminders, and recurring entries). Server-side backups are purged on a rolling 30-day window.
-- **Request a copy of any data we hold on you:** email yash.g@pei.group.
+- **Request a copy of any data we hold on you:** email yash.gupta.developer@gmail.com.
 - **Correct inaccurate data:** edit it directly in the app, or email us.
 
 ## 6. Retention
@@ -71,7 +71,7 @@ You may at any time:
 
 ## 7. Children's privacy
 
-Voxpense is not directed to children under 18 and we do not knowingly collect data from them. If you believe a child has provided us data, contact yash.g@pei.group and we will delete it.
+Voxpense is not directed to children under 18 and we do not knowingly collect data from them. If you believe a child has provided us data, contact yash.gupta.developer@gmail.com and we will delete it.
 
 ## 8. Security
 
@@ -92,6 +92,6 @@ We will update the "Last updated" date above when we change this policy. Materia
 
 ## 11. Contact
 
-Questions, requests, or complaints: **yash.g@pei.group**.
+Questions, requests, or complaints: **yash.gupta.developer@gmail.com**.
 
 Postal address available on request.

@@ -179,8 +179,8 @@ export default function ProfileSettings() {
             <ListItem
               leading={<Mail size={18} color={tokens.muted} />}
               title="Contact support"
-              subtitle="yash.g@pei.group"
-              onPress={() => toast.show('Email yash.g@pei.group', 'info')}
+              subtitle="yash.gupta.developer@gmail.com"
+              onPress={() => toast.show('Email yash.gupta.developer@gmail.com', 'info')}
             />
           </Card>
 
