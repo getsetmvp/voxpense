@@ -40,8 +40,8 @@ export function Footer() {
           <div>
             <h3 className="text-sm font-semibold tracking-tight">Legal</h3>
             <ul className="mt-4 space-y-2.5 text-sm text-muted dark:text-muted-dark">
-              <li><Link href="/privacy/voxpense" className="hover:text-ink dark:hover:text-ink-inverse">Privacy policy</Link></li>
-              <li><Link href="/terms/voxpense" className="hover:text-ink dark:hover:text-ink-inverse">Terms of service</Link></li>
+              <li><Link href="/privacy" className="hover:text-ink dark:hover:text-ink-inverse">Privacy policy</Link></li>
+              <li><Link href="/terms" className="hover:text-ink dark:hover:text-ink-inverse">Terms of service</Link></li>
               <li><a href={`mailto:${site.email}`} className="hover:text-ink dark:hover:text-ink-inverse">Contact</a></li>
             </ul>
           </div>

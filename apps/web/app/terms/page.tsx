@@ -7,7 +7,7 @@ import { Container } from '@/components/Container';
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description: 'VoxPense Terms of Service. Last updated 2026-06-04.',
-  alternates: { canonical: '/terms/voxpense' },
+  alternates: { canonical: '/terms' },
 };
 
 const LAST_UPDATED = '2026-06-04';
@@ -57,7 +57,7 @@ export default function TermsPage() {
             </ul>
 
             <h2>4. Your data</h2>
-            <p>You retain ownership of all expense data you enter. We process it on your behalf solely to provide the Service, as described in the <Link href="/privacy/voxpense">Privacy Policy</Link>.</p>
+            <p>You retain ownership of all expense data you enter. We process it on your behalf solely to provide the Service, as described in the <Link href="/privacy">Privacy Policy</Link>.</p>
 
             <h2>5. Service availability</h2>
             <p>The Service is provided &quot;as is&quot;. We do not guarantee uninterrupted availability and may schedule maintenance with reasonable notice when possible.</p>

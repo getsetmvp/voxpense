@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
     'How VoxPense collects, stores, shares, and deletes your data. Plain English. Last updated 2026-06-04.',
-  alternates: { canonical: '/privacy/voxpense' },
+  alternates: { canonical: '/privacy' },
 };
 
 const LAST_UPDATED = '2026-06-04';

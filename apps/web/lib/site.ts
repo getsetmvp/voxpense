@@ -3,7 +3,7 @@ export const site = {
   tagline: 'Speak it. We log it.',
   description:
     'Voice-first personal expense tracker. Talk to it like a friend; AI parses, categorizes, and budgets in the background.',
-  url: 'https://getsetmvp.com',
+  url: 'https://voxpense.getsetmvp.com',
   ogImage: '/og.png',
   twitter: '@yashgptdev',
   email: 'yash.g@pei.group',
@@ -20,7 +20,7 @@ export const site = {
     { label: 'Features', href: '#features' },
     { label: 'How it works', href: '#how' },
     { label: 'Screenshots', href: '#screens' },
-    { label: 'Privacy', href: '/privacy/voxpense' },
+    { label: 'Privacy', href: '/privacy' },
     { label: 'FAQ', href: '#faq' },
   ],
 };

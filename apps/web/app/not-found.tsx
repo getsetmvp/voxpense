@@ -23,7 +23,7 @@ export default function NotFound() {
               Back home
             </Link>
             <Link
-              href="/privacy/voxpense"
+              href="/privacy"
               className="rounded-full border border-edge px-5 py-2.5 text-sm font-semibold dark:border-edge-dark"
             >
               Privacy policy

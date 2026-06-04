@@ -40,7 +40,7 @@ export function Privacy() {
           </h2>
           <p className="mt-4 text-lg text-muted dark:text-muted-dark">
             We built VoxPense because finance apps shouldn&apos;t harvest your spending data. Read the{' '}
-            <a href="/privacy/voxpense" className="text-brand underline-offset-2 hover:underline">
+            <a href="/privacy" className="text-brand underline-offset-2 hover:underline">
               full privacy policy
             </a>{' '}
             — it&apos;s plain English.
