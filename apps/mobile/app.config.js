@@ -84,6 +84,7 @@ module.exports = ({ config }) => {
           backgroundColor: '#6366F1',
         },
       ],
+      './plugins/with-remove-system-alert-window',
     ],
     experiments: {
       typedRoutes: true,

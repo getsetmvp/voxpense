@@ -18,8 +18,8 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAuth } from '../../src/store/auth';
 import { expenses, users } from '../../src/lib/endpoints';
 
-const TERMS_URL = 'https://voxpense.app/terms';
-const PRIVACY_URL = 'https://voxpense.app/privacy';
+const TERMS_URL = 'https://getsetmvp.com/terms/voxpense';
+const PRIVACY_URL = 'https://getsetmvp.com/privacy/voxpense';
 
 export default function PrivacySettings() {
   const { tokens } = useTheme();
