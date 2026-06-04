@@ -45,6 +45,7 @@ tmp/
 # build artifacts
 *.tsbuildinfo
 coverage/
+.turbo/
 
 # native build outputs (large, regenerable by `eas build --local`)
 *.aab
