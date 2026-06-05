@@ -1,7 +1,7 @@
 // 05 — Sign-in. MVP design, wired to new app auth store.
 
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Linking } from 'react-native';
 import { Mic } from 'lucide-react-native';
 import { useRouter, Link } from 'expo-router';
 import { Screen } from '../../src/components/layout/Screen';
@@ -80,6 +80,21 @@ export default function LoginScreen() {
             errorText={err}
             placeholder="••••••••"
           />
+          <Pressable
+            onPress={() => {
+              const subject = encodeURIComponent('Voxpense password reset request');
+              const body = encodeURIComponent(
+                `Hi Voxpense team,\n\nI forgot my password and need it reset.\n\nAccount email: ${email.trim() || '[please fill in your account email]'}\n\nThank you.`,
+              );
+              Linking.openURL(`mailto:yash.gupta.developer@gmail.com?subject=${subject}&body=${body}`);
+            }}
+            hitSlop={8}
+            style={{ alignSelf: 'flex-end', paddingVertical: 4 }}
+          >
+            <Text style={{ color: tokens.brand, fontSize: 12, fontWeight: '600' }}>
+              Forgot password?
+            </Text>
+          </Pressable>
         </View>
       </View>
       <View style={{ paddingHorizontal: 24, paddingBottom: 32 }}>

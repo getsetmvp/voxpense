@@ -45,6 +45,7 @@ module.exports = ({ config }) => {
     },
     android: {
       package: 'com.getsetmvp.voxpense',
+      versionCode: 2,
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#6366F1',
@@ -53,8 +54,6 @@ module.exports = ({ config }) => {
       permissions: [
         'android.permission.RECORD_AUDIO',
         'android.permission.CAMERA',
-        'android.permission.READ_EXTERNAL_STORAGE',
-        'android.permission.WRITE_EXTERNAL_STORAGE',
         'android.permission.POST_NOTIFICATIONS',
       ],
     },

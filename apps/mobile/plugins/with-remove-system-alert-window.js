@@ -1,17 +1,25 @@
 /**
- * Strips android.permission.SYSTEM_ALERT_WINDOW from the merged AndroidManifest.
+ * Strips Play-policy-sensitive permissions that get auto-injected into the
+ * merged AndroidManifest by transitive Expo / RN modules even though Voxpense
+ * never requests them at runtime.
  *
- * RN 0.79's autolinked debug AndroidManifest declares SYSTEM_ALERT_WINDOW for
- * dev-time red-box overlay support. The Expo prebuild manifest merger picks
- * it up and writes it into apps/mobile/android/app/src/main/AndroidManifest.xml
- * for all variants — including release. Play Console policy review flags
- * SYSTEM_ALERT_WINDOW because the app never requests overlay rendering at
- * runtime, so we mark the permission for removal via the manifest merger's
- * `tools:node="remove"` directive.
+ * - SYSTEM_ALERT_WINDOW: RN 0.79's debug manifest declares it for the dev-time
+ *   red-box overlay; the merger leaks it into release builds.
+ * - READ_EXTERNAL_STORAGE / WRITE_EXTERNAL_STORAGE: auto-added by older
+ *   media/camera Expo modules for legacy storage compat. Voxpense targets API
+ *   34+ with scoped storage and uses no gallery / file picker, so these are
+ *   not needed and Play flags them as sensitive over-declarations.
+ *
+ * Each is marked with `tools:node="remove"` so the manifest merger drops it
+ * from the final packaged manifest.
  */
 const { withAndroidManifest } = require('@expo/config-plugins');
 
-const TARGET = 'android.permission.SYSTEM_ALERT_WINDOW';
+const TARGETS = [
+  'android.permission.SYSTEM_ALERT_WINDOW',
+  'android.permission.READ_EXTERNAL_STORAGE',
+  'android.permission.WRITE_EXTERNAL_STORAGE',
+];
 
 module.exports = function withRemoveSystemAlertWindow(config) {
   return withAndroidManifest(config, (cfg) => {
@@ -24,15 +32,17 @@ module.exports = function withRemoveSystemAlertWindow(config) {
 
     const existing = manifest['uses-permission'] || [];
     const filtered = existing.filter(
-      (p) => p?.$?.['android:name'] !== TARGET,
+      (p) => !TARGETS.includes(p?.$?.['android:name']),
     );
 
-    filtered.push({
-      $: {
-        'android:name': TARGET,
-        'tools:node': 'remove',
-      },
-    });
+    for (const name of TARGETS) {
+      filtered.push({
+        $: {
+          'android:name': name,
+          'tools:node': 'remove',
+        },
+      });
+    }
 
     manifest['uses-permission'] = filtered;
     return cfg;
